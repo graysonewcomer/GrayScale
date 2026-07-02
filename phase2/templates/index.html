@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GrayScale</title>
+  <style>
+    :root {
+      --bg: #101114;
+      --panel: #191b1f;
+      --border: #2a2d33;
+      --text: #e6e6e6;
+      --muted: #8a8f98;
+      --accent: #4a9eff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 { margin: 0; font-size: 18px; letter-spacing: 0.5px; }
+    header .root { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 10;
+    }
+    .tab {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--text); border-color: var(--accent); }
+    .tab .count {
+      color: var(--muted);
+      font-size: 11px;
+      margin-left: 6px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+      padding: 24px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .card .thumb {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000 center/cover no-repeat;
+      display: block;
+      object-fit: cover;
+    }
+    .card .meta { padding: 8px 10px; }
+    .card .name {
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card .sub { color: var(--muted); font-size: 11px; margin-top: 3px; }
+    .game-panel { display: none; }
+    .game-panel.active { display: block; }
+    .empty { color: var(--muted); padding: 40px 24px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>GrayScale</h1>
+    <div class="root">{{ root }}</div>
+  </header>
+
+  {% if games %}
+  <nav class="tabs">
+    {% for game in games %}
+    <button class="tab {% if loop.first %}active{% endif %}"
+            data-target="game-{{ loop.index0 }}">
+      {{ game.name }}<span class="count">{{ game.clip_count }}</span>
+    </button>
+    {% endfor %}
+  </nav>
+
+  {% for game in games %}
+  <section class="game-panel {% if loop.first %}active{% endif %}" id="game-{{ loop.index0 }}">
+    <div class="grid">
+      {% for clip in game.clips %}
+      <div class="card">
+        <img class="thumb" loading="lazy"
+             src="/thumbnail/{{ clip.id }}" alt="{{ clip.filename }}">
+        <div class="meta">
+          <div class="name" title="{{ clip.filename }}">{{ clip.filename }}</div>
+          <div class="sub">{{ clip.date }} &middot; {{ clip.size_mb }} MB</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+  {% else %}
+  <div class="empty">No game folders with clips found.</div>
+  {% endif %}
+
+  <script>
+    const tabs = document.querySelectorAll('.tab');
+    const panels = document.querySelectorAll('.game-panel');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        panels.forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.target).classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>
