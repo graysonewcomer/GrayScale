@@ -6,6 +6,10 @@ venv/
 
 # Generated thumbnail cache (regenerated on demand)
 phase2/thumbnails/
+phase3/thumbnails/
+
+# Local tag database (user data)
+phase3/tags.db
 
 # Generated scan output
 phase1/scan_output.json
