@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "grayscale",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["phase2/app.py"],
+      "port": 5000
+    }
+  ]
+}

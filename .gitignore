@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Generated thumbnail cache (regenerated on demand)
+phase2/thumbnails/
+
+# Generated scan output
+phase1/scan_output.json
+
+# Phase 0 proof-of-concept thumbnail outputs
+phase0/*.jpg
+
+# Machine-local Claude Code settings
+.claude/settings.local.json
