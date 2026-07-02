@@ -13,6 +13,10 @@ so they don't derail the phased build.
 - Moving or renaming originals (export always **copies**, never moves)
 
 ## Noticed during the build
+- The web app is duplicated across `phase2/`, `phase3/`, `phase4/` (each folder
+  is a full snapshot). Now that the phased build is done, consolidate the app
+  into a single `app/` dir with one `tags.db`; keep the `phaseN/` folders as
+  historical reference. Phase 4 is the current complete app.
 - Empty game folders (no clips) and non-game folders (`Java-runtime-delta`,
   `Unreal Crash Report Client`, etc.) — Phase 2 currently hides folders with 0
   clips. Consider an explicit "hide folder" control instead of implicit hiding.
