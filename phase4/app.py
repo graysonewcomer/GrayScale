@@ -10,6 +10,7 @@ Usage: python app.py [path-to-NVIDIA-folder]
 Then open http://127.0.0.1:5000
 """
 import hashlib
+import os
 import shutil
 import subprocess
 import sys
@@ -167,7 +168,8 @@ if __name__ == "__main__":
         sys.exit(1)
     db.init_db()
     build_index(ROOT)
+    port = int(os.environ.get("PORT", 5000))
     print(f"Serving clips from: {ROOT}")
     print(f"Exports go to:      {EXPORTS_ROOT}")
-    print("Open http://127.0.0.1:5000")
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    print(f"Open http://127.0.0.1:{port}")
+    app.run(host="127.0.0.1", port=port, debug=False)

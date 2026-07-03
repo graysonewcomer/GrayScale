@@ -65,14 +65,23 @@
     }
     .card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
     .card.hidden { display: none; }
-    .card .select-box {
-      position: absolute; top: 8px; left: 8px; z-index: 2;
-      width: 22px; height: 22px; cursor: pointer;
-    }
+    .thumb-wrap { position: relative; cursor: pointer; }
     .card .thumb {
       width: 100%; aspect-ratio: 16 / 9; background: #000;
       display: block; object-fit: cover;
     }
+    .badge {
+      position: absolute; top: 8px; left: 8px; z-index: 2;
+      width: 26px; height: 26px; border-radius: 6px;
+      border: 2px solid #fff; background: rgba(0, 0, 0, 0.5);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 16px; font-weight: 700; line-height: 1;
+    }
+    .card.selected .badge {
+      background: var(--accent); border-color: var(--accent); color: #06121f;
+    }
+    .card.selected .badge::after { content: "\2713"; }  /* checkmark when selected */
+    .thumb-wrap:hover .badge { border-color: var(--accent); }
     .card .meta { padding: 8px 10px; }
     .card .name {
       font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -122,8 +131,10 @@
     <div class="grid">
       {% for clip in game.clips %}
       <div class="card" data-clip="{{ clip.id }}" data-tags="{{ clip.tags | join(',') | lower }}">
-        <input type="checkbox" class="select-box" title="Select for export">
-        <img class="thumb" loading="lazy" src="/thumbnail/{{ clip.id }}" alt="{{ clip.filename }}">
+        <div class="thumb-wrap" title="Click to select for export">
+          <img class="thumb" loading="lazy" src="/thumbnail/{{ clip.id }}" alt="{{ clip.filename }}">
+          <span class="badge"></span>
+        </div>
         <div class="meta">
           <div class="name" title="{{ clip.filename }}">{{ clip.filename }}</div>
           <div class="sub">{{ clip.date }} &middot; {{ clip.size_mb }} MB</div>
@@ -176,10 +187,7 @@
         tab.classList.add('active');
         document.getElementById(tab.dataset.target).classList.add('active');
         selected.clear();
-        document.querySelectorAll('.card.selected').forEach(c => {
-          c.classList.remove('selected');
-          c.querySelector('.select-box').checked = false;
-        });
+        document.querySelectorAll('.card.selected').forEach(c => c.classList.remove('selected'));
         statusEl.textContent = '';
         applyFilter();
         refreshSelCount();
@@ -188,13 +196,13 @@
 
     filterInput.addEventListener('input', applyFilter);
 
-    // Multi-select via checkbox
-    document.querySelectorAll('.card .select-box').forEach(box => {
-      box.addEventListener('change', () => {
-        const card = box.closest('.card');
+    // Multi-select: click the thumbnail to toggle selection
+    document.querySelectorAll('.thumb-wrap').forEach(wrap => {
+      wrap.addEventListener('click', () => {
+        const card = wrap.closest('.card');
         const id = card.dataset.clip;
-        if (box.checked) { selected.add(id); card.classList.add('selected'); }
-        else { selected.delete(id); card.classList.remove('selected'); }
+        if (selected.has(id)) { selected.delete(id); card.classList.remove('selected'); }
+        else { selected.add(id); card.classList.add('selected'); }
         refreshSelCount();
       });
     });
