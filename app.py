@@ -22,6 +22,13 @@ from flask import Flask, abort, jsonify, render_template, request, send_file
 import db
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
+VIDEO_MIMETYPES = {
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".mkv": "video/x-matroska",
+    ".avi": "video/x-msvideo",
+    ".webm": "video/webm",
+}
 DEFAULT_ROOT = Path.home() / "Videos" / "NVIDIA"
 CACHE_DIR = Path(__file__).parent / "thumbnails"
 EXPORTS_ROOT = Path.home() / "Videos" / "GrayScale Exports"
@@ -114,6 +121,17 @@ def thumbnail(clip_id: str):
     if thumb is None:
         abort(404)
     return send_file(thumb, mimetype="image/jpeg")
+
+
+@app.route("/video/<clip_id>")
+def video(clip_id: str):
+    """Stream the original clip. conditional=True gives HTTP range support,
+    which the browser needs for seeking. Read-only — originals are untouched."""
+    video_path = CLIP_INDEX.get(clip_id)
+    if video_path is None or not video_path.exists():
+        abort(404)
+    mimetype = VIDEO_MIMETYPES.get(video_path.suffix.lower(), "video/mp4")
+    return send_file(video_path, mimetype=mimetype, conditional=True)
 
 
 @app.route("/api/tags", methods=["POST"])

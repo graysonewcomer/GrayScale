@@ -5,7 +5,6 @@ so they don't derail the phased build.
 
 ## Explicitly out of scope for v1
 - Trimming / editing clips
-- In-app video playback
 - Auto-detection of highlights
 - Any ML
 - Cloud / sync

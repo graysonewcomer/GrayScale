@@ -9,6 +9,9 @@ per-game library. Runs on your machine — no account, no cloud.
 
 - **Dashboard** — a tab per game, with a thumbnail grid (thumbnails generated
   with ffmpeg and cached to disk).
+- **Playback** — hover a clip for a muted inline preview, or hit play to open a
+  large in-app player with native controls and ← / → to step through the game's
+  clips. Streamed with HTTP range support (seeking); originals never touched.
 - **Tagging** — add freeform comma-separated tags to any clip; stored in SQLite
   so they survive a restart.
 - **Filter** — narrow the grid to clips matching a tag, within the active tab.
@@ -34,7 +37,7 @@ Then open http://127.0.0.1:5000
 ## Project layout
 
 ```
-app.py               # Flask server (dashboard, thumbnails, tags, export)
+app.py               # Flask server (dashboard, thumbnails, streaming, tags, export)
 db.py                # SQLite tag storage
 templates/index.html # single-page front end
 requirements.txt
