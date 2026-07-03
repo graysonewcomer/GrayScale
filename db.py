@@ -1,4 +1,4 @@
-"""Phase 3 storage: tags kept in a small local SQLite file.
+"""Tag storage: a small local SQLite file.
 
 Clips are keyed by absolute file path. Known risk: moving the NVIDIA folder
 de-links tags. Acceptable for v1 (see BACKLOG.md).

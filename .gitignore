@@ -5,19 +5,10 @@ __pycache__/
 venv/
 
 # Generated thumbnail cache (regenerated on demand)
-phase2/thumbnails/
-phase3/thumbnails/
-phase4/thumbnails/
+thumbnails/
 
 # Local tag database (user data)
-phase3/tags.db
-phase4/tags.db
-
-# Generated scan output
-phase1/scan_output.json
-
-# Phase 0 proof-of-concept thumbnail outputs
-phase0/*.jpg
+tags.db
 
 # Machine-local Claude Code settings
 .claude/settings.local.json

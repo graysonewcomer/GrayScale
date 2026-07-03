@@ -5,50 +5,43 @@ Local gaming clip viewer/organizer with potentially a lot more to come....
 A local tool that turns your NVIDIA clips folder into a tagged, filterable,
 per-game library. Runs on your machine — no account, no cloud.
 
-Built in phases, in order. Each phase works before the next begins.
+## Features
+
+- **Dashboard** — a tab per game, with a thumbnail grid (thumbnails generated
+  with ffmpeg and cached to disk).
+- **Tagging** — add freeform comma-separated tags to any clip; stored in SQLite
+  so they survive a restart.
+- **Filter** — narrow the grid to clips matching a tag, within the active tab.
+- **Export** — multi-select clips and copy them into a new folder you name.
+  **Copy only — originals are never touched.** Exports land in
+  `~/Videos/GrayScale Exports/<name>`.
 
 ## Requirements
 
 - [ffmpeg](https://ffmpeg.org/) on your PATH (used for thumbnails)
 - Python 3.10+
-- `pip install flask` (needed from Phase 2 on)
+- `pip install -r requirements.txt`
 
-## Run the app
-
-Phase 4 is the complete app (dashboard + tagging + filter + export):
+## Run
 
 ```
-python phase4/app.py             # defaults to ~/Videos/NVIDIA
-python phase4/app.py "C:\path\to\NVIDIA"
+python app.py                 # defaults to ~/Videos/NVIDIA
+python app.py "C:\path\to\NVIDIA"
 ```
 
 Then open http://127.0.0.1:5000
 
-## Phases
+## Project layout
 
-Each `phaseN/` folder is a self-contained, runnable snapshot of the build at
-that step.
+```
+app.py               # Flask server (dashboard, thumbnails, tags, export)
+db.py                # SQLite tag storage
+templates/index.html # single-page front end
+requirements.txt
+```
 
-### Phase 0 — thumbnail proof-of-concept
-Grab a frame ~1s into an mp4 and save it as a jpg.
-`python phase0/thumbnail.py "path/to/clip.mp4" out.jpg`
-
-### Phase 1 — scan and structure
-Scan the NVIDIA folder, list each game (subfolder) and clip (video file) with
-filename, path, length, date, and size. Stray root files are listed, not
-crashed on. `python phase1/scan.py`
-
-### Phase 2 — local server + dashboard
-Flask server: a tab per game, a thumbnail grid below. Thumbnails generated with
-ffmpeg on first request and cached to disk.
-
-### Phase 3 — tagging + storage
-Click a clip, add freeform comma-separated tags. Stored in SQLite, keyed by file
-path, so they survive a restart.
-
-### Phase 4 — filter + export
-Filter the grid by tag, multi-select clips, and "Export Set" to copy the
-selection into a new folder you name. **Copy only — originals are never touched.**
-Exports go to `~/Videos/GrayScale Exports/<name>`.
+Runtime data (`tags.db`, `thumbnails/`) is created on first run and is
+git-ignored. The tool was built in phases (thumbnail proof-of-concept → scan →
+dashboard → tagging → filter/export); that history lives in the git log.
 
 See [BACKLOG.md](BACKLOG.md) for what is intentionally out of scope for v1.

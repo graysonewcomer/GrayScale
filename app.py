@@ -1,12 +1,17 @@
-"""Phase 3: local server + dashboard + tagging.
+"""GrayScale: local dashboard for your NVIDIA clips.
 
-Everything from Phase 2 (tab per game, cached thumbnail grid) plus freeform
-tags per clip, stored in SQLite so they survive a restart.
+- tab per game, cached ffmpeg thumbnail grid
+- freeform tags per clip, stored in SQLite (survive a restart)
+- filter the grid by tag, within the active game tab
+- multi-select clips and "Export Set": copies the selection into a new folder
+  you name. COPY, never move — originals are never touched.
 
-Usage: python app.py [path-to-NVIDIA-folder]
+Usage: python app.py [path-to-NVIDIA-folder]   (defaults to ~/Videos/NVIDIA)
 Then open http://127.0.0.1:5000
 """
 import hashlib
+import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -19,11 +24,11 @@ import db
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
 DEFAULT_ROOT = Path.home() / "Videos" / "NVIDIA"
 CACHE_DIR = Path(__file__).parent / "thumbnails"
+EXPORTS_ROOT = Path.home() / "Videos" / "GrayScale Exports"
 THUMB_SECONDS = 1.0
 
 app = Flask(__name__)
 
-# Populated at startup.
 CLIP_INDEX: dict[str, Path] = {}
 GAMES: list[dict] = []
 ROOT: Path = DEFAULT_ROOT
@@ -34,7 +39,6 @@ def clip_id_for(path: Path) -> str:
 
 
 def build_index(root: Path) -> None:
-    """Scan the folder once into GAMES / CLIP_INDEX (metadata only, no tags)."""
     CLIP_INDEX.clear()
     GAMES.clear()
     for entry in sorted(root.iterdir()):
@@ -60,7 +64,6 @@ def build_index(root: Path) -> None:
 
 
 def games_with_tags() -> list[dict]:
-    """Attach current tags (fetched fresh each render) onto the cached scan."""
     tag_map = db.get_all_tags()
     result = []
     for game in GAMES:
@@ -95,6 +98,11 @@ def ensure_thumbnail(clip_id: str) -> Path | None:
     return thumb_path
 
 
+def safe_folder_name(raw: str) -> str:
+    """Keep only safe characters, blocking path traversal / drive letters."""
+    return "".join(c for c in raw if c.isalnum() or c in " _-").strip()
+
+
 @app.route("/")
 def index():
     return render_template("index.html", games=games_with_tags(), root=str(ROOT))
@@ -120,6 +128,38 @@ def save_tags():
     return jsonify({"tags": tags})
 
 
+@app.route("/api/export", methods=["POST"])
+def export():
+    data = request.get_json(silent=True) or {}
+    clip_ids = data.get("clip_ids", [])
+    folder_name = safe_folder_name(data.get("folder_name", ""))
+
+    if not clip_ids:
+        return jsonify({"error": "No clips selected."}), 400
+    if not folder_name:
+        return jsonify({"error": "Invalid or empty folder name."}), 400
+
+    dest = EXPORTS_ROOT / folder_name
+    dest.mkdir(parents=True, exist_ok=True)
+
+    copied, skipped = [], []
+    for cid in clip_ids:
+        src = CLIP_INDEX.get(cid)
+        if src is None or not src.exists():
+            skipped.append(cid)
+            continue
+        # Copy, never move. Originals are never touched.
+        shutil.copy2(src, dest / src.name)
+        copied.append(src.name)
+
+    return jsonify({
+        "folder": str(dest),
+        "copied": copied,
+        "copied_count": len(copied),
+        "skipped_count": len(skipped),
+    })
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         ROOT = Path(sys.argv[1])
@@ -128,6 +168,8 @@ if __name__ == "__main__":
         sys.exit(1)
     db.init_db()
     build_index(ROOT)
+    port = int(os.environ.get("PORT", 5000))
     print(f"Serving clips from: {ROOT}")
-    print("Open http://127.0.0.1:5000")
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    print(f"Exports go to:      {EXPORTS_ROOT}")
+    print(f"Open http://127.0.0.1:{port}")
+    app.run(host="127.0.0.1", port=port, debug=False)
