@@ -1,161 +1,249 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GrayScale</title>
+  <script>
+    // Apply saved theme before first paint to avoid a flash.
+    (function () {
+      const t = localStorage.getItem('grayscale-theme');
+      if (t) document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <style>
-    :root {
-      --bg: #101114;
+    :root, [data-theme="dark"] {
+      --bg: #0e0f12;
       --panel: #191b1f;
+      --panel-2: #14161a;
       --border: #2a2d33;
-      --text: #e6e6e6;
+      --text: #e8e9eb;
       --muted: #8a8f98;
       --accent: #4a9eff;
+      --accent-ink: #06121f;
       --green: #3ecf7a;
+      --danger: #ff6b6b;
+      --chip-bg: #23303f;
+      --chip-text: #cfe0f5;
+      --chip-border: #2f4459;
+      --input-bg: #0d0e11;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    }
+    [data-theme="light"] {
+      --bg: #f4f6f9;
+      --panel: #ffffff;
+      --panel-2: #eceff3;
+      --border: #dfe3ea;
+      --text: #1b1e24;
+      --muted: #697280;
+      --accent: #2563eb;
+      --accent-ink: #ffffff;
+      --green: #16a34a;
+      --danger: #dc2626;
+      --chip-bg: #e7effb;
+      --chip-text: #1d4ed8;
+      --chip-border: #cadcf6;
+      --input-bg: #ffffff;
+      --shadow: 0 1px 3px rgba(20, 30, 50, 0.08);
     }
     * { box-sizing: border-box; }
+    html, body { height: 100%; }
     body {
       margin: 0;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       background: var(--bg); color: var(--text);
+      -webkit-font-smoothing: antialiased;
     }
-    header { padding: 16px 24px; border-bottom: 1px solid var(--border); }
-    header h1 { margin: 0; font-size: 18px; letter-spacing: 0.5px; }
-    header .root { color: var(--muted); font-size: 12px; margin-top: 4px; }
-    .tabs {
-      display: flex; flex-wrap: wrap; gap: 4px;
-      padding: 12px 24px; border-bottom: 1px solid var(--border);
-      position: sticky; top: 0; background: var(--bg); z-index: 10;
+    .app { display: flex; min-height: 100vh; }
+
+    /* ---- Sidebar ---- */
+    .sidebar {
+      width: 244px; flex-shrink: 0;
+      background: var(--panel-2); border-right: 1px solid var(--border);
+      position: sticky; top: 0; height: 100vh;
+      display: flex; flex-direction: column;
     }
-    .tab {
-      background: var(--panel); border: 1px solid var(--border);
-      color: var(--muted); padding: 6px 12px; border-radius: 6px;
-      cursor: pointer; font-size: 13px;
+    .brand {
+      display: flex; align-items: center; gap: 9px;
+      padding: 18px 20px 14px; font-size: 18px; font-weight: 700; letter-spacing: 0.3px;
     }
-    .tab:hover { color: var(--text); }
-    .tab.active { color: var(--text); border-color: var(--accent); }
-    .tab .count { color: var(--muted); font-size: 11px; margin-left: 6px; }
-    .toolbar {
+    .brand .dot {
+      width: 10px; height: 10px; border-radius: 3px;
+      background: linear-gradient(135deg, var(--accent), var(--green));
+    }
+    .side-label {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em;
+      color: var(--muted); padding: 6px 22px;
+    }
+    .nav { flex: 1; overflow-y: auto; padding: 2px 10px 10px; display: flex; flex-direction: column; gap: 2px; }
+    .nav-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      width: 100%; text-align: left; background: transparent; border: none;
+      color: var(--muted); padding: 8px 12px; border-radius: 8px;
+      cursor: pointer; font-size: 13px; font-family: inherit;
+    }
+    .nav-item:hover { background: var(--panel); color: var(--text); }
+    .nav-item.active {
+      background: var(--panel); color: var(--text);
+      box-shadow: inset 3px 0 0 var(--accent);
+    }
+    .nav-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .nav-count {
+      flex-shrink: 0; font-size: 11px; color: var(--muted);
+      background: var(--bg); padding: 1px 8px; border-radius: 10px;
+    }
+    .nav-item.active .nav-count { color: var(--text); }
+    .side-footer { padding: 12px 20px; border-top: 1px solid var(--border); }
+    .side-footer .root { font-size: 10.5px; color: var(--muted); word-break: break-all; line-height: 1.4; }
+
+    /* ---- Main ---- */
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
       display: flex; align-items: center; gap: 12px;
-      padding: 12px 24px; border-bottom: 1px solid var(--border);
+      padding: 13px 24px; background: var(--bg); border-bottom: 1px solid var(--border);
     }
-    .toolbar input.filter {
-      flex: 1; max-width: 320px; padding: 7px 10px;
-      background: #0d0e11; border: 1px solid var(--border);
-      color: var(--text); border-radius: 6px; font-size: 13px;
+    .filter {
+      flex: 0 1 320px; padding: 8px 12px;
+      background: var(--input-bg); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; font-size: 13px;
     }
-    .toolbar input.filter:focus { outline: none; border-color: var(--accent); }
-    .toolbar .sel-count { color: var(--muted); font-size: 12px; }
-    .toolbar button.export {
-      background: var(--accent); color: #06121f; border: none;
-      padding: 7px 14px; border-radius: 6px; font-size: 13px;
-      font-weight: 600; cursor: pointer;
+    .filter:focus { outline: none; border-color: var(--accent); }
+    .spacer { flex: 1; }
+    .sel-count { color: var(--muted); font-size: 12px; }
+    .export {
+      background: var(--accent); color: var(--accent-ink); border: none;
+      padding: 8px 15px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
     }
-    .toolbar button.export:disabled { opacity: 0.4; cursor: not-allowed; }
-    .toolbar .status { font-size: 12px; color: var(--green); }
+    .export:disabled { opacity: 0.4; cursor: not-allowed; }
+    .status { font-size: 12px; color: var(--green); max-width: 340px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .theme-toggle {
+      width: 34px; height: 34px; flex-shrink: 0;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 8px; cursor: pointer; font-size: 15px; line-height: 1;
+      color: var(--text); display: flex; align-items: center; justify-content: center;
+    }
+    .theme-toggle:hover { border-color: var(--accent); }
+
+    /* ---- Grid + cards ---- */
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 16px; padding: 24px;
+      grid-template-columns: repeat(auto-fill, minmax(264px, 1fr));
+      gap: 18px; padding: 24px;
     }
     .card {
       background: var(--panel); border: 1px solid var(--border);
-      border-radius: 8px; overflow: hidden; position: relative;
+      border-radius: 10px; overflow: hidden; position: relative;
+      box-shadow: var(--shadow); transition: border-color 0.12s, transform 0.08s;
     }
+    .card:hover { border-color: var(--muted); }
     .card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
     .card.hidden { display: none; }
     .thumb-wrap { position: relative; cursor: pointer; }
-    .card .thumb {
+    .thumb {
       width: 100%; aspect-ratio: 16 / 9; background: #000;
       display: block; object-fit: cover;
     }
     .badge {
       position: absolute; top: 8px; left: 8px; z-index: 2;
-      width: 26px; height: 26px; border-radius: 6px;
+      width: 26px; height: 26px; border-radius: 7px;
       border: 2px solid #fff; background: rgba(0, 0, 0, 0.5);
       display: flex; align-items: center; justify-content: center;
       color: #fff; font-size: 16px; font-weight: 700; line-height: 1;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
     }
-    .card.selected .badge {
-      background: var(--accent); border-color: var(--accent); color: #06121f;
-    }
-    .card.selected .badge::after { content: "\2713"; }  /* checkmark when selected */
+    .card.selected .badge { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+    .card.selected .badge::after { content: "\2713"; }
     .thumb-wrap:hover .badge { border-color: var(--accent); }
-    .card .meta { padding: 8px 10px; }
-    .card .name {
-      font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .card .sub { color: var(--muted); font-size: 11px; margin-top: 3px; }
-    .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; min-height: 4px; }
+    .meta { padding: 10px 11px 11px; }
+    .name { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sub { color: var(--muted); font-size: 11px; margin-top: 3px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 9px; min-height: 4px; }
     .chip {
-      background: #23303f; color: #cfe0f5; border: 1px solid #2f4459;
+      background: var(--chip-bg); color: var(--chip-text); border: 1px solid var(--chip-border);
       border-radius: 10px; padding: 1px 8px; font-size: 11px;
     }
     .tag-input {
-      width: 100%; margin-top: 8px; padding: 5px 8px;
-      background: #0d0e11; border: 1px solid var(--border);
-      color: var(--text); border-radius: 6px; font-size: 11px;
+      width: 100%; margin-top: 9px; padding: 6px 9px;
+      background: var(--input-bg); border: 1px solid var(--border);
+      color: var(--text); border-radius: 7px; font-size: 11px; font-family: inherit;
     }
     .tag-input:focus { outline: none; border-color: var(--accent); }
     .tag-input.saved { border-color: var(--green); }
     .game-panel { display: none; }
     .game-panel.active { display: block; }
-    .empty { color: var(--muted); padding: 40px 24px; }
+    .empty { color: var(--muted); padding: 48px 24px; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>GrayScale</h1>
-    <div class="root">{{ root }}</div>
-  </header>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="dot"></span>GrayScale</div>
+      {% if games %}
+      <div class="side-label">Games</div>
+      <nav class="nav">
+        {% for game in games %}
+        <button class="nav-item {% if loop.first %}active{% endif %}" data-target="game-{{ loop.index0 }}">
+          <span class="nav-name">{{ game.name }}</span>
+          <span class="nav-count">{{ game.clip_count }}</span>
+        </button>
+        {% endfor %}
+      </nav>
+      {% else %}
+      <div class="nav"></div>
+      {% endif %}
+      <div class="side-footer">
+        <div class="root" title="{{ root }}">{{ root }}</div>
+      </div>
+    </aside>
 
-  {% if games %}
-  <nav class="tabs">
-    {% for game in games %}
-    <button class="tab {% if loop.first %}active{% endif %}" data-target="game-{{ loop.index0 }}">
-      {{ game.name }}<span class="count">{{ game.clip_count }}</span>
-    </button>
-    {% endfor %}
-  </nav>
+    <main class="main">
+      <div class="topbar">
+        <input class="filter" type="text" placeholder="filter by tag…">
+        <div class="spacer"></div>
+        <span class="sel-count">0 selected</span>
+        <button class="export" disabled>Export Set</button>
+        <span class="status"></span>
+        <button class="theme-toggle" title="Toggle light / dark">🌙</button>
+      </div>
 
-  <div class="toolbar">
-    <input class="filter" type="text" placeholder="filter by tag…">
-    <span class="sel-count">0 selected</span>
-    <button class="export" disabled>Export Set</button>
-    <span class="status"></span>
+      <div class="content">
+        {% if games %}
+        {% for game in games %}
+        <section class="game-panel {% if loop.first %}active{% endif %}" id="game-{{ loop.index0 }}">
+          <div class="grid">
+            {% for clip in game.clips %}
+            <div class="card" data-clip="{{ clip.id }}" data-tags="{{ clip.tags | join(',') | lower }}">
+              <div class="thumb-wrap" title="Click to select for export">
+                <img class="thumb" loading="lazy" src="/thumbnail/{{ clip.id }}" alt="{{ clip.filename }}">
+                <span class="badge"></span>
+              </div>
+              <div class="meta">
+                <div class="name" title="{{ clip.filename }}">{{ clip.filename }}</div>
+                <div class="sub">{{ clip.date }} &middot; {{ clip.size_mb }} MB</div>
+                <div class="chips" id="chips-{{ clip.id }}">
+                  {% for t in clip.tags %}<span class="chip">{{ t }}</span>{% endfor %}
+                </div>
+                <input class="tag-input" data-clip="{{ clip.id }}"
+                       placeholder="add tags, comma-separated"
+                       value="{{ clip.tags | join(', ') }}">
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        {% endfor %}
+        {% else %}
+        <div class="empty">No game folders with clips found.</div>
+        {% endif %}
+      </div>
+    </main>
   </div>
 
-  {% for game in games %}
-  <section class="game-panel {% if loop.first %}active{% endif %}" id="game-{{ loop.index0 }}">
-    <div class="grid">
-      {% for clip in game.clips %}
-      <div class="card" data-clip="{{ clip.id }}" data-tags="{{ clip.tags | join(',') | lower }}">
-        <div class="thumb-wrap" title="Click to select for export">
-          <img class="thumb" loading="lazy" src="/thumbnail/{{ clip.id }}" alt="{{ clip.filename }}">
-          <span class="badge"></span>
-        </div>
-        <div class="meta">
-          <div class="name" title="{{ clip.filename }}">{{ clip.filename }}</div>
-          <div class="sub">{{ clip.date }} &middot; {{ clip.size_mb }} MB</div>
-          <div class="chips" id="chips-{{ clip.id }}">
-            {% for t in clip.tags %}<span class="chip">{{ t }}</span>{% endfor %}
-          </div>
-          <input class="tag-input" data-clip="{{ clip.id }}"
-                 placeholder="add tags, comma-separated"
-                 value="{{ clip.tags | join(', ') }}">
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-  </section>
-  {% endfor %}
-  {% else %}
-  <div class="empty">No game folders with clips found.</div>
-  {% endif %}
-
   <script>
-    const tabs = document.querySelectorAll('.tab');
+    const navItems = document.querySelectorAll('.nav-item');
     const panels = document.querySelectorAll('.game-panel');
     const filterInput = document.querySelector('.filter');
     const selCount = document.querySelector('.sel-count');
@@ -166,8 +254,10 @@
     function activePanel() { return document.querySelector('.game-panel.active'); }
 
     function applyFilter() {
+      const panel = activePanel();
+      if (!panel) return;
       const q = filterInput.value.trim().toLowerCase();
-      activePanel().querySelectorAll('.card').forEach(card => {
+      panel.querySelectorAll('.card').forEach(card => {
         const tags = card.dataset.tags || '';
         const match = !q || tags.split(',').some(t => t.includes(q));
         card.classList.toggle('hidden', !match);
@@ -179,13 +269,13 @@
       exportBtn.disabled = selected.size === 0;
     }
 
-    // Tab switching — clears selection + filter for the new tab
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
+    // Sidebar navigation — clears selection + filter for the new game
+    navItems.forEach(item => {
+      item.addEventListener('click', () => {
+        navItems.forEach(n => n.classList.remove('active'));
         panels.forEach(p => p.classList.remove('active'));
-        tab.classList.add('active');
-        document.getElementById(tab.dataset.target).classList.add('active');
+        item.classList.add('active');
+        document.getElementById(item.dataset.target).classList.add('active');
         selected.clear();
         document.querySelectorAll('.card.selected').forEach(c => c.classList.remove('selected'));
         statusEl.textContent = '';
@@ -221,7 +311,7 @@
       });
       const data = await res.json();
       if (!res.ok) {
-        statusEl.style.color = '#ff6b6b';
+        statusEl.style.color = 'var(--danger)';
         statusEl.textContent = data.error || 'Export failed.';
         return;
       }
@@ -229,7 +319,7 @@
       statusEl.textContent = `Copied ${data.copied_count} clip(s) → ${data.folder}`;
     });
 
-    // Tagging (from Phase 3) — also keeps the card's filter data in sync
+    // Tagging — also keeps the card's filter data in sync
     async function saveTags(input) {
       const clipId = input.dataset.clip;
       const res = await fetch('/api/tags', {
@@ -259,6 +349,21 @@
         if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
       });
       input.addEventListener('blur', () => saveTags(input));
+    });
+
+    // Light / dark theme toggle (persisted)
+    const themeToggle = document.querySelector('.theme-toggle');
+    function syncThemeIcon() {
+      const dark = document.documentElement.getAttribute('data-theme') !== 'light';
+      themeToggle.textContent = dark ? '🌙' : '☀️';
+    }
+    syncThemeIcon();
+    themeToggle.addEventListener('click', () => {
+      const dark = document.documentElement.getAttribute('data-theme') !== 'light';
+      const next = dark ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('grayscale-theme', next);
+      syncThemeIcon();
     });
   </script>
 </body>
