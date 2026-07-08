@@ -1,7 +1,12 @@
 # Backlog
 
-Ideas intentionally kept OUT of scope for v1 (per the build spec). Parked here
-so they don't derail the phased build.
+Small fixes, polish, and refinements. Bigger unspecced features live in
+`FEATUREIDEAS.md`; things ruled out live in `DECISIONS.md`.
+
+## Polish / small fixes
+- Extract the shared CSS (theme tokens + sidebar) into one stylesheet.
+  `index.html` and `status.html` now duplicate the token block — consolidate
+  before the design-polish pass.
 
 ## Explicitly out of scope for v1
 - Trimming / editing clips
