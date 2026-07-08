@@ -178,18 +178,30 @@
     .meta { padding: 10px 11px 11px; }
     .name { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sub { color: var(--muted); font-size: 11px; margin-top: 3px; }
-    .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 9px; min-height: 4px; }
+    .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 9px; min-height: 22px; }
     .chip {
+      display: inline-flex; align-items: center; gap: 3px;
       background: var(--chip-bg); color: var(--chip-text); border: 1px solid var(--chip-border);
-      border-radius: 10px; padding: 1px 8px; font-size: 11px;
+      border-radius: 10px; padding: 1px 5px 1px 8px; font-size: 11px;
     }
+    .chip-x {
+      background: none; border: none; padding: 0; cursor: pointer; line-height: 1;
+      color: var(--chip-text); opacity: 0.55; font-size: 13px; font-family: inherit;
+    }
+    .chip-x:hover { opacity: 1; color: var(--danger); }
+    .add-tag {
+      background: transparent; border: 1px dashed var(--border); color: var(--muted);
+      border-radius: 10px; padding: 1px 8px; font-size: 11px; cursor: pointer; font-family: inherit;
+    }
+    .add-tag:hover { border-color: var(--accent); color: var(--accent); }
     .tag-input {
       width: 100%; margin-top: 9px; padding: 6px 9px;
       background: var(--input-bg); border: 1px solid var(--border);
       color: var(--text); border-radius: 7px; font-size: 11px; font-family: inherit;
     }
+    .tag-input[hidden] { display: none; }
+    .tag-input:not([hidden]) { display: block; }
     .tag-input:focus { outline: none; border-color: var(--accent); }
-    .tag-input.saved { border-color: var(--green); }
     .game-panel { display: none; }
     .game-panel.active { display: block; }
     .empty { color: var(--muted); padding: 48px 24px; }
@@ -290,11 +302,11 @@
                 <div class="name" title="{{ clip.filename }}">{{ clip.filename }}</div>
                 <div class="sub">{{ clip.date }} &middot; {{ clip.size_mb }} MB</div>
                 <div class="chips" id="chips-{{ clip.id }}">
-                  {% for t in clip.tags %}<span class="chip">{{ t }}</span>{% endfor %}
+                  {% for t in clip.tags %}<span class="chip" data-tag="{{ t }}">{{ t }}<button class="chip-x" type="button" title="Remove tag" aria-label="Remove tag">&times;</button></span>{% endfor %}
+                  <button class="add-tag" type="button" data-clip="{{ clip.id }}">+ tag</button>
                 </div>
                 <input class="tag-input" data-clip="{{ clip.id }}"
-                       placeholder="add tags, comma-separated"
-                       value="{{ clip.tags | join(', ') }}">
+                       placeholder="type a tag, Enter to add" hidden>
               </div>
             </div>
             {% endfor %}
@@ -430,7 +442,13 @@
       playerVideo.play().catch(() => {});
       playerTitle.textContent = card.querySelector('.name').textContent;
       playerSub.textContent = card.querySelector('.sub').textContent;
-      playerChips.innerHTML = card.querySelector('.chips').innerHTML;
+      playerChips.innerHTML = '';
+      card.querySelectorAll('.chip').forEach(chip => {
+        const span = document.createElement('span');
+        span.className = 'chip';
+        span.textContent = chip.dataset.tag;  // read-only: no × in the player
+        playerChips.appendChild(span);
+      });
       playerPrev.disabled = playIndex <= 0;
       playerNext.disabled = playIndex >= playlist.length - 1;
     }
@@ -499,36 +517,91 @@
       statusEl.textContent = `Copied ${data.copied_count} clip(s) → ${data.folder}`;
     });
 
-    // Tagging — also keeps the card's filter data in sync
-    async function saveTags(input) {
-      const clipId = input.dataset.clip;
+    // Tagging: chips + a "+ tag" reveal input. Add appends, × removes.
+    // The client always sends the full desired tag set; the server replaces.
+    function chipsEl(id) { return document.getElementById('chips-' + id); }
+    function tagInputEl(id) { return document.querySelector('.tag-input[data-clip="' + id + '"]'); }
+    function currentTags(id) {
+      return [...chipsEl(id).querySelectorAll('.chip')].map(c => c.dataset.tag);
+    }
+
+    function renderChips(id, tags) {
+      const chips = chipsEl(id);
+      chips.innerHTML = '';
+      tags.forEach(t => {
+        const span = document.createElement('span');
+        span.className = 'chip';
+        span.dataset.tag = t;
+        span.appendChild(document.createTextNode(t));
+        const x = document.createElement('button');
+        x.className = 'chip-x';
+        x.type = 'button';
+        x.title = 'Remove tag';
+        x.setAttribute('aria-label', 'Remove tag');
+        x.textContent = '×';
+        span.appendChild(x);
+        chips.appendChild(span);
+      });
+      const add = document.createElement('button');
+      add.className = 'add-tag';
+      add.type = 'button';
+      add.dataset.clip = id;
+      add.textContent = '+ tag';
+      chips.appendChild(add);
+      chips.closest('.card').dataset.tags = tags.join(',').toLowerCase();
+    }
+
+    async function commitTags(id, tags) {
       const res = await fetch('/api/tags', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clip_id: clipId, tags: input.value }),
+        body: JSON.stringify({ clip_id: id, tags: tags.join(',') }),
       });
       if (!res.ok) return;
-      const data = await res.json();
-      const chips = document.getElementById('chips-' + clipId);
-      chips.innerHTML = '';
-      data.tags.forEach(t => {
-        const span = document.createElement('span');
-        span.className = 'chip';
-        span.textContent = t;
-        chips.appendChild(span);
-      });
-      input.value = data.tags.join(', ');
-      input.closest('.card').dataset.tags = data.tags.join(',').toLowerCase();
-      input.classList.add('saved');
-      setTimeout(() => input.classList.remove('saved'), 800);
+      const data = await res.json();  // server normalizes + de-dupes
+      renderChips(id, data.tags);
       applyFilter();
     }
 
+    function addTags(id, raw) {
+      const merged = currentTags(id).concat(raw.split(','));
+      commitTags(id, merged.map(s => s.trim()).filter(Boolean));
+    }
+    function removeTag(id, tag) {
+      commitTags(id, currentTags(id).filter(t => t !== tag));
+    }
+
+    // Delegated clicks: works for server-rendered and re-rendered chips alike.
+    document.querySelector('.content').addEventListener('click', e => {
+      const x = e.target.closest('.chip-x');
+      if (x) {
+        const chip = x.closest('.chip');
+        const id = chip.closest('.chips').id.replace('chips-', '');
+        removeTag(id, chip.dataset.tag);
+        return;
+      }
+      const add = e.target.closest('.add-tag');
+      if (add) {
+        const input = tagInputEl(add.dataset.clip);
+        input.hidden = false;
+        input.focus();
+      }
+    });
+
     document.querySelectorAll('.tag-input').forEach(input => {
+      const id = input.dataset.clip;
       input.addEventListener('keydown', e => {
-        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (input.value.trim()) addTags(id, input.value);
+          input.value = '';  // ready for the next tag; stays open
+        } else if (e.key === 'Escape') {
+          input.value = '';
+          input.hidden = true;
+        }
       });
-      input.addEventListener('blur', () => saveTags(input));
+      // Blur hides the box only when it's empty (a pending tag is kept visible).
+      input.addEventListener('blur', () => { if (!input.value.trim()) input.hidden = true; });
     });
 
     // Light / dark theme toggle (persisted)
