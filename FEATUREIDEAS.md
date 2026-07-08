@@ -16,6 +16,10 @@ any build. Small fixes and polish live in **Backlog** instead.
 
 ## Other ideas noticed during the build
 
+- **Tag list / manager per game** — a panel or cloud showing every tag
+  used in the current game (with counts). Click a tag to filter the grid;
+  a natural home for renaming a tag everywhere at once. The app is built
+  around tagging but gives no overview of the tags you've actually used.
 - **Stable clip identity** — key tags by a content hash instead of file
   path, so moving the NVIDIA folder doesn't de-link tags.
 - **Hide non-game folders** — an explicit "hide folder" control rather

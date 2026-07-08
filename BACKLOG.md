@@ -7,6 +7,8 @@ Small fixes, polish, and refinements. Bigger unspecced features live in
 - Extract the shared CSS (theme tokens + sidebar) into one stylesheet.
   `index.html` and `status.html` now duplicate the token block — consolidate
   before the design-polish pass.
+- Click a tag chip (on a card or in the player) to filter the grid by that
+  tag, instead of retyping it in the filter box.
 
 ## Explicitly out of scope for v1
 - Trimming / editing clips
