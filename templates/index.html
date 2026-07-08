@@ -94,6 +94,11 @@
     }
     .nav-item.active .nav-count { color: var(--text); }
     .side-footer { padding: 12px 20px; border-top: 1px solid var(--border); }
+    .status-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--muted); text-decoration: none; font-size: 12px; margin-bottom: 10px;
+    }
+    .status-link:hover { color: var(--accent); }
     .side-footer .root { font-size: 10.5px; color: var(--muted); word-break: break-all; line-height: 1.4; }
 
     /* ---- Main ---- */
@@ -270,6 +275,7 @@
       <div class="nav"></div>
       {% endif %}
       <div class="side-footer">
+        <a class="status-link" href="/status">&#128196; Status &amp; notes</a>
         <div class="root" title="{{ root }}">{{ root }}</div>
       </div>
     </aside>

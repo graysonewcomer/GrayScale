@@ -17,6 +17,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import markdown
 from flask import Flask, abort, jsonify, render_template, request, send_file
 
 import db
@@ -30,9 +31,20 @@ VIDEO_MIMETYPES = {
     ".webm": "video/webm",
 }
 DEFAULT_ROOT = Path.home() / "Videos" / "NVIDIA"
-CACHE_DIR = Path(__file__).parent / "thumbnails"
+PROJECT_ROOT = Path(__file__).parent
+CACHE_DIR = PROJECT_ROOT / "thumbnails"
 EXPORTS_ROOT = Path.home() / "Videos" / "GrayScale Exports"
 THUMB_SECONDS = 1.0
+
+# Read-only status page: a fixed set of project markdown files rendered in the
+# browser. New file = one entry here; nothing else is per-file. `slug` is the
+# URL segment; a listed-but-absent file is expected and shows "not found yet".
+STATUS_FILES = [
+    {"slug": "state", "file": "STATE.md", "label": "State"},
+    {"slug": "backlog", "file": "BACKLOG.md", "label": "Backlog"},
+    {"slug": "ideas", "file": "FEATUREIDEAS.md", "label": "Feature Ideas"},
+    {"slug": "decisions", "file": "DECISIONS.md", "label": "Decisions"},
+]
 
 app = Flask(__name__)
 
@@ -113,6 +125,39 @@ def safe_folder_name(raw: str) -> str:
 @app.route("/")
 def index():
     return render_template("index.html", games=games_with_tags(), root=str(ROOT))
+
+
+def render_status(entry: dict):
+    """Render one status file to the status template. Missing file is fine —
+    it's expected (e.g. DECISIONS.md before it exists), so we never 500."""
+    path = PROJECT_ROOT / entry["file"]
+    if path.exists():
+        content = markdown.markdown(
+            path.read_text(encoding="utf-8"),
+            extensions=["fenced_code", "tables"],
+        )
+    else:
+        content = (
+            f'<p class="notfound"><code>{entry["file"]}</code> '
+            "doesn’t exist yet.</p>"
+        )
+    return render_template(
+        "status.html", files=STATUS_FILES, active=entry["slug"],
+        label=entry["label"], content=content,
+    )
+
+
+@app.route("/status")
+def status():
+    return render_status(STATUS_FILES[0])  # STATE.md by default
+
+
+@app.route("/status/<slug>")
+def status_file(slug: str):
+    entry = next((f for f in STATUS_FILES if f["slug"] == slug), None)
+    if entry is None:
+        abort(404)
+    return render_status(entry)
 
 
 @app.route("/thumbnail/<clip_id>")
