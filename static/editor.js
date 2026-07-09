@@ -362,6 +362,67 @@
     window.addEventListener('pointerup', onUp);
   });
 
+  // ---- export: render the timeline to a new MP4 server-side ----
+  const exportBar = document.getElementById('ed-exportbar');
+  const exportFill = document.getElementById('ed-progress-fill');
+  const exportStatus = document.getElementById('ed-export-status');
+  let exporting = false;
+
+  async function startExport() {
+    if (exporting || !project) return;
+    if (saveTimer) await saveNow();  // sync pending edits to disk first
+    exporting = true;
+    exportBtn.disabled = true;
+    exportBar.hidden = false;
+    exportFill.style.width = '0%';
+    exportStatus.className = 'ed-export-status';
+    exportStatus.textContent = 'Starting export…';
+    try {
+      const res = await fetch('/api/render/' + clipId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeline: project.timeline }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'could not start the export');
+      poll(data.job_id);
+    } catch (err) {
+      exportDone(false, 'Export failed: ' + err.message);
+    }
+  }
+
+  function exportDone(ok, message) {
+    exporting = false;
+    exportBtn.disabled = false;
+    exportFill.style.width = ok ? '100%' : '0%';
+    exportStatus.className = 'ed-export-status ' + (ok ? 'ok' : 'error');
+    exportStatus.textContent = message;
+    exportStatus.title = message;  // full path survives the ellipsis
+  }
+
+  // The job runs server-side, so it survives the editor being closed;
+  // polling just keeps narrating to whoever is watching.
+  async function poll(jobId) {
+    try {
+      const res = await fetch('/api/render-status/' + jobId);
+      if (!res.ok) throw new Error('lost track of the export job');
+      const job = await res.json();
+      if (job.state === 'running') {
+        exportFill.style.width = (job.progress * 100).toFixed(1) + '%';
+        exportStatus.textContent = 'Rendering… ' + Math.round(job.progress * 100) + '%';
+        setTimeout(() => poll(jobId), 600);
+      } else if (job.state === 'done') {
+        exportDone(true, 'Saved to ' + job.output);
+      } else {
+        exportDone(false, 'Export failed: ' + (job.error || 'unknown error'));
+      }
+    } catch (err) {
+      exportDone(false, 'Export failed: ' + err.message);
+    }
+  }
+
+  exportBtn.addEventListener('click', startExport);
+
   // ---- open / close ----
   async function open(card) {
     clipId = card.dataset.clip;
@@ -373,6 +434,11 @@
     activeIdx = 0;
     undoStack.length = 0;
     redoStack.length = 0;
+    if (!exporting) {   // a still-running job keeps its progress visible
+      exportBar.hidden = true;
+      exportStatus.textContent = '';
+    }
+    exportBtn.disabled = exporting;
 
     overlay.classList.add('open');
     const res = await fetch('/api/project/' + clipId);
