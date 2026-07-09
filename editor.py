@@ -10,17 +10,21 @@ can be added later without breaking saved projects. Only `kind: "video"`
 is accepted today.
 """
 import json
+import shutil
 import subprocess
+import threading
 import uuid
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 
-from flask import Blueprint, abort, jsonify, request
+from flask import Blueprint, abort, jsonify, request, send_file
 
 bp = Blueprint("editor", __name__)
 
 PROJECT_ROOT = Path(__file__).parent
 PROJECTS_DIR = PROJECT_ROOT / "projects"
+EDIT_THUMBS_DIR = PROJECT_ROOT / "thumbnails" / "edit"
 MIN_SEGMENT_SECONDS = 0.1
 
 # Shared state handed over by app.py at startup (the dict is mutated in
@@ -137,7 +141,14 @@ def load_project(clip_id: str) -> dict | None:
 
 
 def migrate_project(old_id: str, new_id: str, new_path: Path) -> None:
-    """Re-key a project after its clip is renamed on disk."""
+    """Re-key a project (and its thumbnail cache) after a clip rename."""
+    old_thumbs = EDIT_THUMBS_DIR / old_id
+    if old_thumbs.is_dir():
+        new_thumbs = EDIT_THUMBS_DIR / new_id
+        if new_thumbs.exists():
+            shutil.rmtree(old_thumbs)
+        else:
+            old_thumbs.rename(new_thumbs)
     project = load_project(old_id)
     if project is None:
         return
@@ -191,3 +202,149 @@ def save_project(clip_id: str):
         "timeline": timeline,
     })
     return jsonify({"ok": True})
+
+
+@bp.route("/edit-thumb/<clip_id>/<int:second>")
+def edit_thumb(clip_id: str, second: int):
+    """One small cached frame at an integer second, for the timeline strip.
+    Each frame is an independent request, so the strip fills in lazily and
+    concurrently without ever holding video data in memory."""
+    video_path = _clip_index.get(clip_id)
+    if video_path is None or not video_path.exists():
+        abort(404)
+    thumb_dir = EDIT_THUMBS_DIR / clip_id
+    thumb_dir.mkdir(parents=True, exist_ok=True)
+    thumb = thumb_dir / f"{second}.jpg"
+    if not thumb.exists():
+        tmp = thumb_dir / f"{second}.{uuid.uuid4().hex[:8]}.tmp.jpg"
+        cmd = [
+            "ffmpeg", "-y",
+            "-ss", str(second),
+            "-i", str(video_path),
+            "-frames:v", "1",
+            "-update", "1",
+            "-vf", "scale=160:-1",
+            "-q:v", "5",
+            str(tmp),
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0 or not tmp.exists():
+            tmp.unlink(missing_ok=True)
+            abort(404)
+        tmp.replace(thumb)  # atomic: concurrent requests can't collide
+    return send_file(thumb, mimetype="image/jpeg")
+
+
+# ---- export: render the EDL to a new MP4 with ffmpeg ----
+# Jobs run in a daemon thread and are polled by id. Each segment becomes a
+# fast-seeking (-ss before -i) input on the *same* file, so ffmpeg never
+# decodes more than the kept ranges; the concat filter joins and re-encodes
+# them for frame-accurate cuts.
+_jobs: dict[str, dict] = {}
+_jobs_lock = threading.Lock()
+
+
+def _set_job(job_id: str, **fields) -> None:
+    with _jobs_lock:
+        _jobs[job_id].update(fields)
+
+
+def _render_cmd(src: Path, segments: list[dict], has_audio: bool, out: Path) -> list[str]:
+    cmd = ["ffmpeg", "-y"]
+    for seg in segments:
+        cmd += ["-ss", f"{seg['start']:.3f}", "-t", f"{seg['end'] - seg['start']:.3f}", "-i", str(src)]
+    n = len(segments)
+    if has_audio:
+        pads = "".join(f"[{i}:v:0][{i}:a:0]" for i in range(n))
+        filt = f"{pads}concat=n={n}:v=1:a=1[v][a]"
+        maps = ["-map", "[v]", "-map", "[a]"]
+    else:
+        pads = "".join(f"[{i}:v:0]" for i in range(n))
+        filt = f"{pads}concat=n={n}:v=1:a=0[v]"
+        maps = ["-map", "[v]"]
+    cmd += ["-filter_complex", filt, *maps,
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+            "-pix_fmt", "yuv420p"]
+    if has_audio:
+        cmd += ["-c:a", "aac", "-b:a", "192k"]
+    cmd += ["-movflags", "+faststart", "-progress", "pipe:1", "-nostats", str(out)]
+    return cmd
+
+
+def _run_render(job_id: str, src: Path, segments: list[dict],
+                has_audio: bool, out: Path) -> None:
+    total = sum(s["end"] - s["start"] for s in segments)
+    tail: deque[str] = deque(maxlen=40)  # last log lines, for error reporting
+    try:
+        proc = subprocess.Popen(
+            _render_cmd(src, segments, has_audio, out),
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, errors="replace",
+        )
+        for line in proc.stdout:
+            line = line.strip()
+            if not line:
+                continue
+            tail.append(line)
+            # -progress emits out_time_us / out_time_ms; both are microseconds.
+            if line.startswith(("out_time_us=", "out_time_ms=")):
+                value = line.split("=", 1)[1]
+                if value.isdigit() and total > 0:
+                    frac = min(1.0, int(value) / 1e6 / total)
+                    _set_job(job_id, progress=round(frac, 4))
+        code = proc.wait()
+        if code == 0 and out.exists():
+            _set_job(job_id, state="done", progress=1.0, output=str(out))
+        else:
+            detail = "; ".join(list(tail)[-4:]) or f"ffmpeg exited with {code}"
+            _set_job(job_id, state="error", error=detail)
+            out.unlink(missing_ok=True)  # never leave a broken half-file
+    except OSError as exc:
+        _set_job(job_id, state="error", error=str(exc))
+        out.unlink(missing_ok=True)
+
+
+@bp.route("/api/render/<clip_id>", methods=["POST"])
+def start_render(clip_id: str):
+    src = _clip_index.get(clip_id)
+    if src is None or not src.exists():
+        abort(404)
+    data = request.get_json(silent=True) or {}
+    project = load_project(clip_id)
+    if project is not None:
+        source = project["source"]
+    else:
+        try:
+            source = _new_project(clip_id, src)["source"]
+        except RuntimeError as exc:
+            return jsonify({"error": str(exc)}), 500
+    try:
+        timeline = validated_timeline(data.get("timeline"), source["duration"])
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    segments = timeline["tracks"][0]["segments"]
+
+    out_dir = _exports_root / "Edited"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    out = out_dir / f"{src.stem} edit {stamp}.mp4"
+
+    job_id = uuid.uuid4().hex[:12]
+    with _jobs_lock:
+        _jobs[job_id] = {"state": "running", "progress": 0.0,
+                         "output": None, "error": None}
+    threading.Thread(
+        target=_run_render,
+        args=(job_id, src, segments, source["has_audio"], out),
+        daemon=True,
+    ).start()
+    return jsonify({"job_id": job_id})
+
+
+@bp.route("/api/render-status/<job_id>")
+def render_status(job_id: str):
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+        if job is None:
+            abort(404)
+        return jsonify(dict(job))
