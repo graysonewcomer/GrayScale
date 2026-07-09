@@ -292,9 +292,26 @@ function applyRename(card, data) {
   nameEl.title = data.filename;
   applyFilter();
 }
+
+// Update a card in place after Apply Edit replaced its clip: the render mints
+// a (possibly new) id, a smaller size, and fresh content, so re-key the card,
+// rewrite its size, and cache-bust the thumbnail — no full-page reload needed.
+function applyReplace(card, job) {
+  applyRename(card, { id: job.new_id, filename: job.filename });
+  const sub = card.querySelector('.sub');
+  if (sub) {
+    // The recorded date is preserved server-side; only the size changed.
+    const date = sub.textContent.split('·')[0].trim();
+    sub.textContent = date + ' · ' + job.size_mb + ' MB';
+  }
+  const thumb = card.querySelector('.thumb');
+  if (thumb) thumb.src = '/thumbnail/' + job.new_id + '?v=' + Date.now();
+}
+
 // The editor lives in its own script; hand it the card re-keying + a lookup.
 window.GrayScale = Object.assign(window.GrayScale || {}, {
   applyRename,
+  applyReplace,
   cardById: id => document.querySelector('.card[data-clip="' + id + '"]'),
 });
 

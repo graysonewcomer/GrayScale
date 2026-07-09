@@ -62,6 +62,12 @@ All four v1 phases are done and working:
   dashboard card behind it (via a shared `window.GrayScale.applyRename`
   helper in `app.js`), so you can name the cut before Apply Edit instead of
   waiting for the post-render reload. ✅
+- **Apply Edit no longer navigates away (July 2026)** — the post-render poll
+  used to `window.location.reload()`, which always re-activated the first
+  game tab and dumped you off the clip you edited. It now patches the card in
+  place through a shared `window.GrayScale.applyReplace` helper (re-key id,
+  rewrite size, cache-bust thumbnail) and closes the editor, so the tab and
+  scroll position are preserved. ✅
 
 ## Next step
 

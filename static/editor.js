@@ -578,10 +578,13 @@
         exportStatus.textContent = 'Rendering… ' + Math.round(job.progress * 100) + '%';
         setTimeout(() => poll(jobId), 600);
       } else if (job.state === 'done') {
-        exportDone(true, 'Clip replaced (' + job.size_mb + ' MB) — refreshing…');
-        // The clip, its metadata, and every thumbnail changed; a reload is
-        // the honest way to show the new state everywhere.
-        setTimeout(() => window.location.reload(), 1200);
+        exportDone(true, 'Clip replaced (' + job.size_mb + ' MB).');
+        // The clip, its metadata, and thumbnail all changed — but a full
+        // reload throws us back to the first game tab. Instead, patch the
+        // affected card in place and close the editor, keeping the tab and
+        // scroll position on the clip we just edited.
+        if (cardEl && window.GrayScale) window.GrayScale.applyReplace(cardEl, job);
+        setTimeout(close, 1200);  // let the "Clip replaced" note land, then exit
       } else {
         exportDone(false, 'Export failed: ' + (job.error || 'unknown error'));
       }
