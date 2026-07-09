@@ -876,6 +876,13 @@ body::before {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.ed-volume {
+  width: 92px;
+  accent-color: var(--silver);
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+.ed-volume.muted { opacity: 0.4; }
 
 .editor-timeline { padding: 6px 16px 16px; }
 .tl-inner { position: relative; cursor: var(--tl-cursor); touch-action: none; }
