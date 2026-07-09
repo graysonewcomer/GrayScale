@@ -10,5 +10,8 @@ thumbnails/
 # Local tag database (user data)
 tags.db
 
+# Edit projects (user data, JSON edit decision lists)
+projects/
+
 # Machine-local Claude Code settings
 .claude/settings.local.json

@@ -7,6 +7,8 @@
   you name. COPY, never move — export never touches originals.
 - rename a clip in-app (pencil icon): the one deliberate write to originals,
   always within the same folder, extension preserved.
+- non-destructive editor (editor.py): trim/split/delete stored as JSON
+  projects; export renders a new MP4 via ffmpeg — originals untouched.
 
 Usage: python app.py [path-to-NVIDIA-folder]   (defaults to ~/Videos/NVIDIA)
 Then open http://127.0.0.1:5000
@@ -23,6 +25,7 @@ import markdown
 from flask import Flask, abort, jsonify, render_template, request, send_file
 
 import db
+import editor
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
 VIDEO_MIMETYPES = {
@@ -53,6 +56,9 @@ app = Flask(__name__)
 CLIP_INDEX: dict[str, Path] = {}
 GAMES: list[dict] = []
 ROOT: Path = DEFAULT_ROOT
+
+app.register_blueprint(editor.bp)
+editor.init(CLIP_INDEX, EXPORTS_ROOT)
 
 
 def clip_id_for(path: Path) -> str:
@@ -237,6 +243,7 @@ def rename():
     db.rename_path(str(src), str(dest))
 
     new_id = clip_id_for(dest)
+    editor.migrate_project(clip_id, new_id, dest)
     old_thumb = CACHE_DIR / f"{clip_id}.jpg"
     if old_thumb.exists():
         old_thumb.rename(CACHE_DIR / f"{new_id}.jpg")
