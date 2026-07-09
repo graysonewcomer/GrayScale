@@ -7,8 +7,10 @@
   you name. COPY, never move — export never touches originals.
 - rename a clip in-app (pencil icon): the one deliberate write to originals,
   always within the same folder, extension preserved.
-- non-destructive editor (editor.py): trim/split/delete stored as JSON
-  projects; export renders a new MP4 via ffmpeg — originals untouched.
+- editor (editor.py): trim/split/delete stored as JSON projects; nothing
+  touches the file until "Apply Edit", which renders via ffmpeg to a temp
+  file and atomically replaces the clip (the second deliberate write to
+  originals, alongside rename — confirmed in the UI first).
 
 Usage: python app.py [path-to-NVIDIA-folder]   (defaults to ~/Videos/NVIDIA)
 Then open http://127.0.0.1:5000
@@ -57,12 +59,13 @@ CLIP_INDEX: dict[str, Path] = {}
 GAMES: list[dict] = []
 ROOT: Path = DEFAULT_ROOT
 
-app.register_blueprint(editor.bp)
-editor.init(CLIP_INDEX, EXPORTS_ROOT)
-
 
 def clip_id_for(path: Path) -> str:
     return hashlib.sha1(str(path).encode("utf-8")).hexdigest()[:16]
+
+
+app.register_blueprint(editor.bp)
+editor.init(CLIP_INDEX, GAMES, CACHE_DIR, clip_id_for)
 
 
 def build_index(root: Path) -> None:
@@ -73,6 +76,8 @@ def build_index(root: Path) -> None:
             continue
         clips = []
         for f in sorted(entry.iterdir()):
+            if ".grayscale-" in f.name:
+                continue  # in-progress (or orphaned) editor render temp
             if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS:
                 cid = clip_id_for(f)
                 CLIP_INDEX[cid] = f

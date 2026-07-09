@@ -10,15 +10,19 @@ can be added later without breaking saved projects. Only `kind: "video"`
 is accepted today.
 """
 import json
+import os
 import shutil
 import subprocess
 import threading
+import time
 import uuid
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import Blueprint, abort, jsonify, request, send_file
+
+import db
 
 bp = Blueprint("editor", __name__)
 
@@ -27,16 +31,21 @@ PROJECTS_DIR = PROJECT_ROOT / "projects"
 EDIT_THUMBS_DIR = PROJECT_ROOT / "thumbnails" / "edit"
 MIN_SEGMENT_SECONDS = 0.1
 
-# Shared state handed over by app.py at startup (the dict is mutated in
-# place on rescan/rename, so holding the reference keeps us current).
+# Shared state handed over by app.py at startup (dict/list are mutated in
+# place on rename, so holding the references keeps us current).
 _clip_index: dict[str, Path] = {}
-_exports_root: Path | None = None
+_games: list[dict] = []
+_cache_dir: Path | None = None
+_id_for = None
 
 
-def init(clip_index: dict[str, Path], exports_root: Path) -> None:
-    global _clip_index, _exports_root
+def init(clip_index: dict[str, Path], games: list[dict],
+         cache_dir: Path, id_for) -> None:
+    global _clip_index, _games, _cache_dir, _id_for
     _clip_index = clip_index
-    _exports_root = exports_root
+    _games = games
+    _cache_dir = cache_dir
+    _id_for = id_for
 
 
 def _now() -> str:
@@ -235,8 +244,11 @@ def edit_thumb(clip_id: str, second: int):
     return send_file(thumb, mimetype="image/jpeg")
 
 
-# ---- export: render the EDL to a new MP4 with ffmpeg ----
-# Jobs run in a daemon thread and are polled by id. Each segment becomes a
+# ---- apply: render the EDL with ffmpeg, then REPLACE the original ----
+# This is the one destructive editor action, and it is deliberately staged:
+# ffmpeg renders to a temp file next to the original, the temp is probed for
+# sanity, and only then is the original atomically swapped out. A failed or
+# killed render can never damage the clip. Each segment becomes a
 # fast-seeking (-ss before -i) input on the *same* file, so ffmpeg never
 # decodes more than the kept ranges; the concat filter joins and re-encodes
 # them for frame-accurate cuts.
@@ -271,7 +283,53 @@ def _render_cmd(src: Path, segments: list[dict], has_audio: bool, out: Path) -> 
     return cmd
 
 
-def _run_render(job_id: str, src: Path, segments: list[dict],
+def _finalize_replace(clip_id: str, src: Path, rendered: Path) -> dict:
+    """Swap the rendered temp file in over the original, then re-key every
+    cache that assumed the old content. Raises on any problem, in which
+    case the original has not been touched."""
+    info = probe_source(rendered)  # sanity: a broken render never lands
+    if info["duration"] <= 0:
+        raise RuntimeError("rendered file has no duration")
+
+    target = src.with_suffix(".mp4")  # normally == src; .mkv etc. becomes .mp4
+    stat = src.stat()
+    # The clip may briefly be held open by a streaming response (the editor
+    # preview, a hover preview); retry the swap a few times before giving up.
+    for _ in range(10):
+        try:
+            os.replace(rendered, target)
+            break
+        except PermissionError:
+            time.sleep(0.5)
+    else:
+        raise RuntimeError("clip is in use — close other players and retry")
+    if target != src:
+        src.unlink(missing_ok=True)
+    # Keep the recorded date: sorting and the Arcade rely on mtime.
+    os.utime(target, (stat.st_atime, stat.st_mtime))
+
+    # The edit is baked into the file now — the project and every thumbnail
+    # derived from the old content are stale.
+    project_file(clip_id).unlink(missing_ok=True)
+    shutil.rmtree(EDIT_THUMBS_DIR / clip_id, ignore_errors=True)
+    (_cache_dir / f"{clip_id}.jpg").unlink(missing_ok=True)
+
+    new_id = _id_for(target)
+    if new_id != clip_id:  # only when the extension changed
+        db.rename_path(str(src), str(target))
+        _clip_index.pop(clip_id, None)
+    _clip_index[new_id] = target
+    size_mb = round(target.stat().st_size / (1024 * 1024), 1)
+    for game in _games:
+        for clip in game["clips"]:
+            if clip["id"] == clip_id:
+                clip.update(id=new_id, path=str(target),
+                            filename=target.name, size_mb=size_mb)
+    return {"replaced": True, "new_id": new_id,
+            "filename": target.name, "size_mb": size_mb}
+
+
+def _run_render(job_id: str, clip_id: str, src: Path, segments: list[dict],
                 has_audio: bool, out: Path) -> None:
     total = sum(s["end"] - s["start"] for s in segments)
     tail: deque[str] = deque(maxlen=40)  # last log lines, for error reporting
@@ -293,13 +351,14 @@ def _run_render(job_id: str, src: Path, segments: list[dict],
                     frac = min(1.0, int(value) / 1e6 / total)
                     _set_job(job_id, progress=round(frac, 4))
         code = proc.wait()
-        if code == 0 and out.exists():
-            _set_job(job_id, state="done", progress=1.0, output=str(out))
-        else:
+        if code != 0 or not out.exists():
             detail = "; ".join(list(tail)[-4:]) or f"ffmpeg exited with {code}"
             _set_job(job_id, state="error", error=detail)
             out.unlink(missing_ok=True)  # never leave a broken half-file
-    except OSError as exc:
+            return
+        extra = _finalize_replace(clip_id, src, out)
+        _set_job(job_id, state="done", progress=1.0, **extra)
+    except (OSError, RuntimeError) as exc:
         _set_job(job_id, state="error", error=str(exc))
         out.unlink(missing_ok=True)
 
@@ -324,18 +383,15 @@ def start_render(clip_id: str):
         return jsonify({"error": str(exc)}), 400
     segments = timeline["tracks"][0]["segments"]
 
-    out_dir = _exports_root / "Edited"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    out = out_dir / f"{src.stem} edit {stamp}.mp4"
-
     job_id = uuid.uuid4().hex[:12]
+    # Render into the clip's own folder so the final swap is an atomic
+    # same-volume rename, never a copy.
+    out = src.with_name(f"{src.stem}.grayscale-{job_id}.tmp.mp4")
     with _jobs_lock:
-        _jobs[job_id] = {"state": "running", "progress": 0.0,
-                         "output": None, "error": None}
+        _jobs[job_id] = {"state": "running", "progress": 0.0, "error": None}
     threading.Thread(
         target=_run_render,
-        args=(job_id, src, segments, source["has_audio"], out),
+        args=(job_id, clip_id, src, segments, source["has_audio"], out),
         daemon=True,
     ).start()
     return jsonify({"job_id": job_id})

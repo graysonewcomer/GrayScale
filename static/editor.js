@@ -148,7 +148,10 @@
     playhead = Math.max(0, Math.min(tlDuration(), t));
     const { i, src } = locate(playhead);
     activeIdx = i;
-    if (Math.abs(video.currentTime - src) > 0.04) video.currentTime = src;
+    // No src while a render is applying — position updates, seeking waits.
+    if (video.currentSrc && Math.abs(video.currentTime - src) > 0.04) {
+      video.currentTime = src;
+    }
     renderChrome();
   }
 
@@ -431,13 +434,27 @@
 
   async function startExport() {
     if (exporting || !project) return;
+    // The one destructive action in the app: say exactly what will happen.
+    const kept = segs().length;
+    const ok = confirm(
+      'Replace "' + titleEl.textContent + '" with your edited cut?\n\n' +
+      'Kept: ' + kept + ' segment' + (kept === 1 ? '' : 's') + ', ' +
+      fmt(tlDuration()) + ' of ' + fmt(project.source.duration) + '. ' +
+      'Everything outside your segments is discarded for good.');
+    if (!ok) return;
     if (saveTimer) await saveNow();  // sync pending edits to disk first
     exporting = true;
     exportBtn.disabled = true;
     exportBar.hidden = false;
     exportFill.style.width = '0%';
     exportStatus.className = 'ed-export-status';
-    exportStatus.textContent = 'Starting export…';
+    exportStatus.textContent = 'Starting render…';
+    // Release the preview's open stream so the final file swap can't be
+    // blocked by our own connection to the clip.
+    cancelAnimationFrame(raf);
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
     try {
       const res = await fetch('/api/render/' + clipId, {
         method: 'POST',
@@ -458,7 +475,14 @@
     exportFill.style.width = ok ? '100%' : '0%';
     exportStatus.className = 'ed-export-status ' + (ok ? 'ok' : 'error');
     exportStatus.textContent = message;
-    exportStatus.title = message;  // full path survives the ellipsis
+    exportStatus.title = message;  // full detail survives the ellipsis
+    // On failure the original is untouched; bring the preview back to life.
+    if (!ok && clipId && overlay.classList.contains('open')) {
+      video.src = '/video/' + clipId;
+      seekTl(playhead);
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(tick);
+    }
   }
 
   // The job runs server-side, so it survives the editor being closed;
@@ -473,7 +497,10 @@
         exportStatus.textContent = 'Rendering… ' + Math.round(job.progress * 100) + '%';
         setTimeout(() => poll(jobId), 600);
       } else if (job.state === 'done') {
-        exportDone(true, 'Saved to ' + job.output);
+        exportDone(true, 'Clip replaced (' + job.size_mb + ' MB) — refreshing…');
+        // The clip, its metadata, and every thumbnail changed; a reload is
+        // the honest way to show the new state everywhere.
+        setTimeout(() => window.location.reload(), 1200);
       } else {
         exportDone(false, 'Export failed: ' + (job.error || 'unknown error'));
       }
