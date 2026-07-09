@@ -38,6 +38,7 @@
 
     <main class="main">
       <div class="topbar">
+        <input class="search" type="text" placeholder="search by name…">
         <input class="filter" type="text" placeholder="filter by tag…">
         <div class="spacer"></div>
         <span class="sel-count">0 selected</span>
@@ -52,7 +53,7 @@
         <section class="game-panel {% if loop.first %}active{% endif %}" id="game-{{ loop.index0 }}">
           <div class="grid">
             {% for clip in game.clips %}
-            <div class="card" data-clip="{{ clip.id }}" data-tags="{{ clip.tags | join(',') | lower }}">
+            <div class="card" data-clip="{{ clip.id }}" data-name="{{ clip.filename | lower }}" data-tags="{{ clip.tags | join(',') | lower }}">
               <div class="thumb-wrap" title="Click to select · hover to preview">
                 <img class="thumb" loading="lazy" src="/thumbnail/{{ clip.id }}" alt="{{ clip.filename }}">
                 <span class="badge"></span>
@@ -61,10 +62,16 @@
                 </button>
               </div>
               <div class="meta">
-                <div class="name" title="{{ clip.filename }}">{{ clip.filename }}</div>
+                <div class="name-row">
+                  <div class="name" title="{{ clip.filename }}">{{ clip.filename }}</div>
+                  <button class="rename-btn" type="button" title="Rename clip" aria-label="Rename clip">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                  </button>
+                </div>
+                <input class="name-input" type="text" hidden>
                 <div class="sub">{{ clip.date }} &middot; {{ clip.size_mb }} MB</div>
                 <div class="chips" id="chips-{{ clip.id }}">
-                  {% for t in clip.tags %}<span class="chip" data-tag="{{ t }}">{{ t }}<button class="chip-x" type="button" title="Remove tag" aria-label="Remove tag">&times;</button></span>{% endfor %}
+                  {% for t in clip.tags %}<span class="chip" data-tag="{{ t }}" style="--tc: {{ colors[t | lower] }}">{{ t }}<button class="chip-x" type="button" title="Remove tag" aria-label="Remove tag">&times;</button></span>{% endfor %}
                   <button class="add-tag" type="button" data-clip="{{ clip.id }}">+ tag</button>
                 </div>
                 <input class="tag-input" data-clip="{{ clip.id }}"

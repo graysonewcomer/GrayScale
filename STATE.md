@@ -23,8 +23,15 @@ All four v1 phases are done and working:
   accents, serif brand type, checkerboard motifs). CSS/JS split out of the
   templates into `static/style.css`, `static/theme.js`, `static/app.js`;
   both pages now share one stylesheet. ✅
+- **Pastel tag colors** — every tag gets a random pastel hex, minted once
+  and persisted in SQLite (`tag_colors`), so the same tag matches
+  everywhere. ✅
+- **Search by name** — a second topbar input, combined (AND) with the tag
+  filter. ✅
+- **Rename in-app** — pencil icon on card hover; renames the file on disk
+  (stem only), migrating the tag row and cached thumbnail to the new id. ✅
 
 ## Next step
 
 - Remaining small UI fixes are parked in **Backlog** (next up:
-  click-a-chip-to-filter).
+  click-a-chip-to-filter — even nicer now that chips are colored).

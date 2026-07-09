@@ -2,6 +2,7 @@
 // hover previews, the player modal, and chip-based tagging.
 const navItems = document.querySelectorAll('.nav-item');
 const panels = document.querySelectorAll('.game-panel');
+const searchInput = document.querySelector('.search');
 const filterInput = document.querySelector('.filter');
 const selCount = document.querySelector('.sel-count');
 const exportBtn = document.querySelector('.export');
@@ -13,11 +14,13 @@ function activePanel() { return document.querySelector('.game-panel.active'); }
 function applyFilter() {
   const panel = activePanel();
   if (!panel) return;
-  const q = filterInput.value.trim().toLowerCase();
+  const qName = searchInput.value.trim().toLowerCase();
+  const qTag = filterInput.value.trim().toLowerCase();
   panel.querySelectorAll('.card').forEach(card => {
+    const nameOk = !qName || (card.dataset.name || '').includes(qName);
     const tags = card.dataset.tags || '';
-    const match = !q || tags.split(',').some(t => t.includes(q));
-    card.classList.toggle('hidden', !match);
+    const tagOk = !qTag || tags.split(',').some(t => t.includes(qTag));
+    card.classList.toggle('hidden', !(nameOk && tagOk));
   });
 }
 
@@ -42,6 +45,7 @@ navItems.forEach(item => {
   });
 });
 
+searchInput.addEventListener('input', applyFilter);
 filterInput.addEventListener('input', applyFilter);
 
 // Multi-select: click the thumbnail to toggle selection
@@ -109,6 +113,8 @@ function loadClip(card) {
     const span = document.createElement('span');
     span.className = 'chip';
     span.textContent = chip.dataset.tag;  // read-only: no × in the player
+    const tc = chip.style.getPropertyValue('--tc');
+    if (tc) span.style.setProperty('--tc', tc);
     playerChips.appendChild(span);
   });
   playerPrev.disabled = playIndex <= 0;
@@ -187,13 +193,15 @@ function currentTags(id) {
   return [...chipsEl(id).querySelectorAll('.chip')].map(c => c.dataset.tag);
 }
 
-function renderChips(id, tags) {
+function renderChips(id, tags, colors) {
   const chips = chipsEl(id);
   chips.innerHTML = '';
   tags.forEach(t => {
     const span = document.createElement('span');
     span.className = 'chip';
     span.dataset.tag = t;
+    const tc = colors && colors[t.toLowerCase()];
+    if (tc) span.style.setProperty('--tc', tc);
     span.appendChild(document.createTextNode(t));
     const x = document.createElement('button');
     x.className = 'chip-x';
@@ -221,7 +229,7 @@ async function commitTags(id, tags) {
   });
   if (!res.ok) return;
   const data = await res.json();  // server normalizes + de-dupes
-  renderChips(id, data.tags);
+  renderChips(id, data.tags, data.colors);
   applyFilter();
 }
 
@@ -251,8 +259,9 @@ document.querySelector('.content').addEventListener('click', e => {
 });
 
 document.querySelectorAll('.tag-input').forEach(input => {
-  const id = input.dataset.clip;
   input.addEventListener('keydown', e => {
+    // Read the id at event time: a rename re-keys the card's clip id.
+    const id = input.dataset.clip;
     if (e.key === 'Enter') {
       e.preventDefault();
       if (input.value.trim()) addTags(id, input.value);
@@ -264,4 +273,77 @@ document.querySelectorAll('.tag-input').forEach(input => {
   });
   // Blur hides the box only when it's empty (a pending tag is kept visible).
   input.addEventListener('blur', () => { if (!input.value.trim()) input.hidden = true; });
+});
+
+// Rename in-app: pencil icon swaps the name for an input. The stem is
+// edited; the extension is preserved server-side. Enter/blur commit, Esc
+// cancels. A rename mints a new clip id, so every id hook is re-keyed.
+document.querySelectorAll('.card').forEach(card => {
+  const btn = card.querySelector('.rename-btn');
+  if (!btn) return;
+  const nameRow = card.querySelector('.name-row');
+  const nameEl = card.querySelector('.name');
+  const input = card.querySelector('.name-input');
+  let busy = false;
+
+  const stemOf = file => {
+    const dot = file.lastIndexOf('.');
+    return dot > 0 ? file.slice(0, dot) : file;
+  };
+
+  const open = () => {
+    input.value = stemOf(nameEl.textContent);
+    nameRow.hidden = true;
+    input.hidden = false;
+    input.focus();
+    input.select();
+  };
+
+  const close = () => {
+    input.hidden = true;
+    nameRow.hidden = false;
+  };
+
+  const commit = async () => {
+    if (busy) return;
+    const stem = input.value.trim();
+    if (!stem || stem === stemOf(nameEl.textContent)) { close(); return; }
+    busy = true;
+    try {
+      const res = await fetch('/api/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clip_id: card.dataset.clip, name: stem }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        statusEl.style.color = 'var(--danger)';
+        statusEl.textContent = data.error || 'Rename failed.';
+        return;
+      }
+      const oldId = card.dataset.clip;
+      if (selected.has(oldId)) { selected.delete(oldId); selected.add(data.id); }
+      card.dataset.clip = data.id;
+      card.dataset.name = data.filename.toLowerCase();
+      card.querySelector('.chips').id = 'chips-' + data.id;
+      const addBtn = card.querySelector('.add-tag');
+      if (addBtn) addBtn.dataset.clip = data.id;
+      card.querySelector('.tag-input').dataset.clip = data.id;
+      nameEl.textContent = data.filename;
+      nameEl.title = data.filename;
+      statusEl.style.color = 'var(--green)';
+      statusEl.textContent = 'Renamed.';
+      applyFilter();
+    } finally {
+      busy = false;
+      close();
+    }
+  };
+
+  btn.addEventListener('click', open);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    else if (e.key === 'Escape') close();
+  });
+  input.addEventListener('blur', () => { if (!input.hidden) commit(); });
 });

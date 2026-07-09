@@ -13,7 +13,10 @@ Small fixes, polish, and refinements. Bigger unspecced features live in
 - Any ML
 - Cloud / sync
 - Mobile
-- Moving or renaming originals (export always **copies**, never moves)
+- Moving originals (export always **copies**, never moves). Renaming was
+  originally out of scope too, but shipped July 2026 as an explicit
+  user-initiated action (pencil icon) — still same-folder, extension
+  preserved.
 
 ## Noticed during the build
 - Empty game folders (no clips) and non-game folders (`Java-runtime-delta`,

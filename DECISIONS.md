@@ -2,6 +2,12 @@
 
 One-liners on things we ruled out (or committed to) and why. Newest at top.
 
+- **Tag colors are random-per-tag and stored, not hash-derived** — a
+  `tag_colors` SQLite table beats hashing the tag name to a hue: colors
+  stay stable even if the palette generator changes later.
+- **Rename is the one allowed write to originals** — user-initiated via
+  the pencil icon only; same folder, extension preserved. Export remains
+  copy-only.
 - **Kept the vanilla HTML/JS + Flask stack; no React** — the app is a
   server-rendered grid with a handful of interactions; React would add a
   build step and dependency tree to solve state problems we don't have.

@@ -4,7 +4,9 @@
 - freeform tags per clip, stored in SQLite (survive a restart)
 - filter the grid by tag, within the active game tab
 - multi-select clips and "Export Set": copies the selection into a new folder
-  you name. COPY, never move — originals are never touched.
+  you name. COPY, never move — export never touches originals.
+- rename a clip in-app (pencil icon): the one deliberate write to originals,
+  always within the same folder, extension preserved.
 
 Usage: python app.py [path-to-NVIDIA-folder]   (defaults to ~/Videos/NVIDIA)
 Then open http://127.0.0.1:5000
@@ -122,9 +124,20 @@ def safe_folder_name(raw: str) -> str:
     return "".join(c for c in raw if c.isalnum() or c in " _-").strip()
 
 
+def safe_stem(raw: str) -> str:
+    """Sanitize a new filename stem: strip characters Windows forbids and
+    anything that could traverse paths; trailing dots/spaces are invalid."""
+    forbidden = set('<>:"/\\|?*')
+    cleaned = "".join(c for c in raw if c not in forbidden and ord(c) >= 32)
+    return cleaned.strip().rstrip(". ")
+
+
 @app.route("/")
 def index():
-    return render_template("index.html", games=games_with_tags(), root=str(ROOT))
+    games = games_with_tags()
+    all_tags = {t for game in games for clip in game["clips"] for t in clip["tags"]}
+    colors = db.ensure_tag_colors(all_tags)
+    return render_template("index.html", games=games, root=str(ROOT), colors=colors)
 
 
 def render_status(entry: dict):
@@ -188,7 +201,46 @@ def save_tags():
     if video_path is None:
         abort(404)
     tags = db.set_tags(str(video_path), raw)
-    return jsonify({"tags": tags})
+    return jsonify({"tags": tags, "colors": db.ensure_tag_colors(tags)})
+
+
+@app.route("/api/rename", methods=["POST"])
+def rename():
+    """Rename a clip on disk (stem only; the extension is preserved).
+    The clip id is a hash of the path, so a rename mints a new id — the
+    tag row and cached thumbnail are migrated and the new id is returned."""
+    data = request.get_json(silent=True) or {}
+    clip_id = data.get("clip_id")
+    stem = safe_stem(data.get("name", ""))
+
+    src = CLIP_INDEX.get(clip_id)
+    if src is None or not src.exists():
+        abort(404)
+    if not stem:
+        return jsonify({"error": "Invalid or empty name."}), 400
+
+    dest = src.with_name(stem + src.suffix)
+    if dest == src:
+        return jsonify({"id": clip_id, "filename": src.name})
+    if dest.exists():
+        return jsonify({"error": "A clip with that name already exists."}), 400
+
+    src.rename(dest)
+    db.rename_path(str(src), str(dest))
+
+    new_id = clip_id_for(dest)
+    old_thumb = CACHE_DIR / f"{clip_id}.jpg"
+    if old_thumb.exists():
+        old_thumb.rename(CACHE_DIR / f"{new_id}.jpg")
+
+    del CLIP_INDEX[clip_id]
+    CLIP_INDEX[new_id] = dest
+    for game in GAMES:
+        for clip in game["clips"]:
+            if clip["id"] == clip_id:
+                clip.update(id=new_id, path=str(dest), filename=dest.name)
+
+    return jsonify({"id": new_id, "filename": dest.name})
 
 
 @app.route("/api/export", methods=["POST"])

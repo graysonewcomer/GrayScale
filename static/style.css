@@ -74,6 +74,7 @@
 
 /* ---- Base ---- */
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
   margin: 0;
@@ -227,8 +228,8 @@ body::before {
   font-weight: 600;
   letter-spacing: 0.02em;
 }
-.filter {
-  flex: 0 1 320px;
+.search, .filter {
+  flex: 0 1 240px;
   padding: 8px 12px;
   background: var(--input-bg);
   border: 1px solid var(--border);
@@ -238,10 +239,10 @@ body::before {
   font-family: inherit;
   transition: border-color 0.15s;
 }
-.filter::placeholder { color: var(--muted); }
-.filter:focus { outline: none; border-color: var(--silver); }
+.search::placeholder, .filter::placeholder { color: var(--muted); }
+.search:focus, .filter:focus { outline: none; border-color: var(--silver); }
 .spacer { flex: 1; }
-.sel-count { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.sel-count { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sel-count.has-sel { color: var(--text); }
 
 /* Primary button — always wears the opposing color, with a silver sheen sweep */
@@ -256,6 +257,7 @@ body::before {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.01em;
+  white-space: nowrap;
   cursor: pointer;
   font-family: inherit;
 }
@@ -390,12 +392,40 @@ body::before {
 .thumb-wrap:hover .play-btn { opacity: 1; transform: scale(1); }
 .play-btn:hover { background: #fff; color: #000; border-color: #fff; }
 .meta { padding: 10px 11px 11px; }
+.name-row { display: flex; align-items: center; gap: 6px; }
 .name {
+  flex: 1;
+  min-width: 0;
   font-size: 12.5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.rename-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--muted);
+  line-height: 0;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s;
+}
+.card:hover .rename-btn, .rename-btn:focus-visible { opacity: 1; }
+.rename-btn:hover { color: var(--text); }
+.rename-btn svg { width: 13px; height: 13px; }
+.name-input {
+  width: 100%;
+  padding: 4px 8px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-family: inherit;
+}
+.name-input:focus { outline: none; border-color: var(--focus); }
 .sub { color: var(--muted); font-size: 11px; margin-top: 3px; font-variant-numeric: tabular-nums; }
 
 /* ---- Tag chips ---- */
@@ -418,13 +448,20 @@ body::before {
   padding: 1px 5px 1px 8px;
   font-size: 11px;
 }
+/* A chip with an assigned pastel (--tc set inline) wears it as its
+   background; ink and border are derived from it, so any hue works. */
+.chip[style] {
+  background: var(--tc);
+  color: color-mix(in srgb, var(--tc) 16%, #17171b);
+  border-color: color-mix(in srgb, var(--tc) 68%, #17171b);
+}
 .chip-x {
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
   line-height: 1;
-  color: var(--chip-text);
+  color: inherit;
   opacity: 0.55;
   font-size: 13px;
   font-family: inherit;
