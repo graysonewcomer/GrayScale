@@ -91,6 +91,7 @@
 
   function renderTrack() {
     const total = tlDuration();
+    const trackW = trackEl.clientWidth || 1000;
     trackEl.innerHTML = '';
     segs().forEach((seg, i) => {
       const el = document.createElement('div');
@@ -98,6 +99,24 @@
       el.dataset.seg = seg.id;
       el.style.left = (offsetOf(i) / total * 100) + '%';
       el.style.width = (segLen(seg) / total * 100) + '%';
+      // Thumbnail strip: frames sampled across the segment's source window,
+      // snapped to whole seconds so the /edit-thumb cache is reused as the
+      // segment is trimmed. Lazy imgs = generated on demand, in parallel.
+      const segPx = segLen(seg) / total * trackW;
+      const count = Math.max(1, Math.round(segPx / 90));
+      const thumbs = document.createElement('div');
+      thumbs.className = 'tl-thumbs';
+      for (let k = 0; k < count; k++) {
+        const img = document.createElement('img');
+        img.loading = 'lazy';
+        img.draggable = false;
+        img.alt = '';
+        const srcT = seg.start + (k + 0.5) / count * segLen(seg);
+        const sec = Math.min(Math.floor(project.source.duration), Math.floor(srcT));
+        img.src = '/edit-thumb/' + clipId + '/' + sec;
+        thumbs.appendChild(img);
+      }
+      el.appendChild(thumbs);
       const label = document.createElement('span');
       label.className = 'tl-seg-label';
       label.textContent = fmt(segLen(seg));

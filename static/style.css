@@ -903,7 +903,29 @@ body::before {
   border-right: 1px solid var(--border-strong);
   overflow: hidden;
 }
-.tl-seg.sel { box-shadow: inset 0 0 0 2px var(--silver); }
+/* Selection ring drawn in an overlay so the thumbnail strip can't cover it */
+.tl-seg.sel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  box-shadow: inset 0 0 0 2px var(--silver);
+  pointer-events: none;
+}
+.tl-thumbs {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+}
+.tl-thumbs img {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.75;
+  pointer-events: none;
+}
 .tl-handle {
   position: absolute;
   top: 0;
