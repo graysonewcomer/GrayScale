@@ -275,6 +275,29 @@ document.querySelectorAll('.tag-input').forEach(input => {
   input.addEventListener('blur', () => { if (!input.value.trim()) input.hidden = true; });
 });
 
+// Re-key a card's DOM + selection state after its clip was renamed on the
+// server (a rename mints a new clip id). Shared by the pencil rename here and
+// the editor's title rename, so both keep every id hook consistent.
+function applyRename(card, data) {
+  const oldId = card.dataset.clip;
+  if (selected.has(oldId)) { selected.delete(oldId); selected.add(data.id); }
+  card.dataset.clip = data.id;
+  card.dataset.name = data.filename.toLowerCase();
+  card.querySelector('.chips').id = 'chips-' + data.id;
+  const addBtn = card.querySelector('.add-tag');
+  if (addBtn) addBtn.dataset.clip = data.id;
+  card.querySelector('.tag-input').dataset.clip = data.id;
+  const nameEl = card.querySelector('.name');
+  nameEl.textContent = data.filename;
+  nameEl.title = data.filename;
+  applyFilter();
+}
+// The editor lives in its own script; hand it the card re-keying + a lookup.
+window.GrayScale = Object.assign(window.GrayScale || {}, {
+  applyRename,
+  cardById: id => document.querySelector('.card[data-clip="' + id + '"]'),
+});
+
 // Rename in-app: pencil icon swaps the name for an input. The stem is
 // edited; the extension is preserved server-side. Enter/blur commit, Esc
 // cancels. A rename mints a new clip id, so every id hook is re-keyed.
@@ -321,19 +344,9 @@ document.querySelectorAll('.card').forEach(card => {
         statusEl.textContent = data.error || 'Rename failed.';
         return;
       }
-      const oldId = card.dataset.clip;
-      if (selected.has(oldId)) { selected.delete(oldId); selected.add(data.id); }
-      card.dataset.clip = data.id;
-      card.dataset.name = data.filename.toLowerCase();
-      card.querySelector('.chips').id = 'chips-' + data.id;
-      const addBtn = card.querySelector('.add-tag');
-      if (addBtn) addBtn.dataset.clip = data.id;
-      card.querySelector('.tag-input').dataset.clip = data.id;
-      nameEl.textContent = data.filename;
-      nameEl.title = data.filename;
+      applyRename(card, data);
       statusEl.style.color = 'var(--green)';
       statusEl.textContent = 'Renamed.';
-      applyFilter();
     } finally {
       busy = false;
       close();

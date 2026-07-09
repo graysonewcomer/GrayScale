@@ -15,6 +15,7 @@
 
   const video = document.getElementById('ed-video');
   const titleEl = document.getElementById('ed-title');
+  const titleInput = document.getElementById('ed-title-input');
   const saveStateEl = document.getElementById('ed-savestate');
   const undoBtn = document.getElementById('ed-undo');
   const redoBtn = document.getElementById('ed-redo');
@@ -30,6 +31,7 @@
   const playheadEl = document.getElementById('ed-playhead');
 
   let clipId = null;
+  let cardEl = null;      // the dashboard card this editor was opened from
   let project = null;
   let playhead = 0;        // timeline seconds
   let activeIdx = 0;       // segment currently feeding the <video>
@@ -391,6 +393,85 @@
     window.addEventListener('pointerup', onUp);
   });
 
+  // ---- rename: edit the clip's name from the editor title ----
+  // Renaming mints a new clip id server-side (the id is a hash of the path),
+  // so we adopt the returned id, re-point the preview stream, and re-key the
+  // dashboard card — the same outcome as the pencil rename, without leaving.
+  const stemOf = name => {
+    const dot = name.lastIndexOf('.');
+    return dot > 0 ? name.slice(0, dot) : name;
+  };
+
+  function openTitleEdit() {
+    if (!project || exporting) return;
+    titleInput.value = stemOf(titleEl.textContent);
+    titleEl.hidden = true;
+    titleInput.hidden = false;
+    titleInput.focus();
+    titleInput.select();
+  }
+
+  function closeTitleEdit() {
+    titleInput.hidden = true;
+    titleEl.hidden = false;
+  }
+
+  let renaming = false;
+  async function commitTitleEdit() {
+    if (renaming) return;
+    const stem = titleInput.value.trim();
+    if (!stem || stem === stemOf(titleEl.textContent)) { closeTitleEdit(); return; }
+    renaming = true;
+    const fromId = clipId;
+    try {
+      const res = await fetch('/api/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clip_id: fromId, name: stem }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        saveStateEl.className = 'editor-savestate error';
+        saveStateEl.textContent = data.error || 'Rename failed.';
+        return;
+      }
+      if (fromId !== clipId) return;  // editor moved to another clip mid-flight
+      clipId = data.id;
+      titleEl.textContent = data.filename;
+      titleEl.title = data.filename;
+      // The server migrated the project + edit-thumbs to the new id and
+      // dropped the old id from its index; re-point the preview so range
+      // requests don't 404, and rebuild the strip against the new id.
+      const srcT = video.currentTime;
+      const wasPlaying = !video.paused;
+      video.src = '/video/' + clipId;
+      video.addEventListener('loadedmetadata', function once() {
+        video.removeEventListener('loadedmetadata', once);
+        if (Number.isFinite(srcT)) video.currentTime = srcT;
+        if (wasPlaying) video.play().catch(() => {});
+      });
+      renderTrack();
+      // Keep the dashboard card behind the editor consistent.
+      if (cardEl && window.GrayScale) window.GrayScale.applyRename(cardEl, data);
+      saveStateEl.className = 'editor-savestate saved';
+      saveStateEl.textContent = 'Renamed';
+    } catch (err) {
+      saveStateEl.className = 'editor-savestate error';
+      saveStateEl.textContent = 'Rename failed: ' + err.message;
+    } finally {
+      renaming = false;
+      closeTitleEdit();
+    }
+  }
+
+  titleEl.addEventListener('click', openTitleEdit);
+  titleInput.addEventListener('keydown', e => {
+    e.stopPropagation();  // don't reach the editor's global shortcut handler
+    if (e.key === 'Enter') { e.preventDefault(); commitTitleEdit(); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeTitleEdit(); }
+  });
+  titleInput.addEventListener('blur', () => { if (!titleInput.hidden) commitTitleEdit(); });
+
   // ---- volume: slider + mute, persisted like the theme preference ----
   const muteBtn = document.getElementById('ed-mute');
   const volSlider = document.getElementById('ed-volume');
@@ -514,7 +595,10 @@
   // ---- open / close ----
   async function open(card) {
     clipId = card.dataset.clip;
+    cardEl = card;
+    closeTitleEdit();
     titleEl.textContent = card.querySelector('.name').textContent;
+    titleEl.title = titleEl.textContent;
     saveStateEl.className = 'editor-savestate';
     saveStateEl.textContent = '';
     selectedId = null;
@@ -545,6 +629,7 @@
 
   function close() {
     if (saveTimer) saveNow();  // flush a pending autosave before leaving
+    closeTitleEdit();
     overlay.classList.remove('open');
     cancelAnimationFrame(raf);
     video.pause();
@@ -552,6 +637,7 @@
     video.load();
     project = null;
     clipId = null;
+    cardEl = null;
   }
 
   document.querySelectorAll('.edit-btn').forEach(btn => {

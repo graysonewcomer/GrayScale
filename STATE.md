@@ -55,6 +55,13 @@ All four v1 phases are done and working:
   iPhone-style trim drags (timeline holds its scale, segment truncates in
   place, rescales on release), and a persisted volume slider + mute (M) in
   the transport. ✅
+- **Rename inside the editor (July 2026)** — the editor title is now
+  click-to-edit (Enter/blur commit, Esc cancel), reusing the same
+  `/api/rename` endpoint as the card pencil. On success it adopts the new
+  clip id, re-points the preview stream + thumb strip, and re-keys the
+  dashboard card behind it (via a shared `window.GrayScale.applyRename`
+  helper in `app.js`), so you can name the cut before Apply Edit instead of
+  waiting for the post-render reload. ✅
 
 ## Next step
 

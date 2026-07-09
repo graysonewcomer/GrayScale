@@ -3,7 +3,22 @@
 Small fixes, polish, and refinements. Bigger unspecced features live in
 `FEATUREIDEAS.md`; things ruled out live in `DECISIONS.md`.
 
-## Polish / small fixes
+## Bugs
+- **Apply Edit dumps you back on the first game tab.** After a successful
+  render, the progress poll's `done` branch calls a full
+  `window.location.reload()` (`static/editor.js`, in `poll()` ~line 584).
+  A full reload always re-activates the first game panel (the
+  `{% if loop.first %}active{% endif %}` tab, i.e. the landing page — "gamble
+  with my friends"), so you lose your place: the editor closes and you're
+  thrown to the top of the default tab instead of staying on the game/clip
+  you just edited. There's no separate "new updates" poller — this is the one
+  and only reload. Fix idea: instead of a blunt page reload, update just the
+  affected card in place (new id, filename, size, refreshed thumbnail via a
+  cache-busting `?v=` query) and keep the current tab/scroll; or, if a reload
+  is still wanted, restore the active tab afterward (e.g. persist it in
+  `sessionStorage` / the URL hash and re-select on load). The reload was
+  chosen originally because "the clip, its metadata, and every thumbnail
+  changed" — but that can be reconciled without navigating away.
 - Click a tag chip (on a card or in the player) to filter the grid by that
   tag, instead of retyping it in the filter box.
 
