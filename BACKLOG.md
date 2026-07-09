@@ -32,8 +32,8 @@ Small fixes, polish, and refinements. Bigger unspecced features live in
 - The scan logic lives inside the app (`build_index`). If a standalone CLI
   listing is ever wanted again, factor it into a shared module with a small
   entry point rather than duplicating.
-- Editor: trim drags re-render the whole segment strip each pointermove,
-  re-requesting thumbnail URLs (served from browser cache, but still churn).
-  Throttle or diff the strip if it ever feels sluggish on long clips.
+- ~~Editor: trim drags re-render the whole segment strip each pointermove~~ —
+  fixed July 2026: drags now mutate only the dragged segment's element
+  (iPhone-style truncate-in-place), so nothing is re-rendered until release.
 - Editor: export renders keep running server-side if the editor is closed
   mid-render (by design), but there's no way to *cancel* a render yet.

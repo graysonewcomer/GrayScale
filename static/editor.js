@@ -319,42 +319,68 @@
     if (!handle || !project) return;
     e.stopPropagation();  // not a scrub
     e.preventDefault();
-    const segId = handle.closest('.tl-seg').dataset.seg;
+    const segEl = handle.closest('.tl-seg');
+    const segId = segEl.dataset.seg;
     const seg = segs().find(s => s.id === segId);
     const side = handle.dataset.side;
     const preDrag = snapshot();
-    // Scale is frozen at drag start: trimming changes the total duration,
-    // and a live-updating scale makes the handle squirm under the cursor.
-    const pxPerSec = tlInner.getBoundingClientRect().width / tlDuration();
+    // The whole layout is frozen at drag start (iPhone-style): the other
+    // segments hold still, the dragged segment truncates in place with the
+    // checkerboard showing through, and the timeline only rescales to fill
+    // once the handle is released.
+    const total0 = tlDuration();
+    const offset0 = offsetOf(segs().indexOf(seg));
+    const pxPerSec = tlInner.getBoundingClientRect().width / total0;
     const x0 = e.clientX;
     const start0 = seg.start;
     const end0 = seg.end;
     video.pause();
     selectedId = segId;
+    trackEl.querySelectorAll('.tl-seg.sel').forEach(s => s.classList.remove('sel'));
+    segEl.classList.add('sel');
+    refreshTools();
+
+    // Mask the thumbnails instead of squishing them: freeze the strip at
+    // its pixel width, anchored to the edge that isn't moving, and let the
+    // segment's overflow:hidden do the cropping.
+    const labelEl = segEl.querySelector('.tl-seg-label');
+    const thumbsEl = segEl.querySelector('.tl-thumbs');
+    if (thumbsEl) {
+      thumbsEl.style.width = segEl.getBoundingClientRect().width + 'px';
+      if (side === 'l') {
+        thumbsEl.style.left = 'auto';
+        thumbsEl.style.right = '0';
+      }
+    }
 
     const onMove = ev => {
       const dt = (ev.clientX - x0) / pxPerSec;
       if (side === 'l') {
         seg.start = Math.min(Math.max(0, start0 + dt), seg.end - MIN_SEG);
+        segEl.style.left = ((offset0 + (seg.start - start0)) / total0 * 100) + '%';
       } else {
         seg.end = Math.max(Math.min(project.source.duration, end0 + dt), seg.start + MIN_SEG);
       }
-      // Preview the exact trim frame while dragging.
-      const idx = segs().indexOf(seg);
-      playhead = offsetOf(idx) + (side === 'l' ? 0 : segLen(seg));
+      segEl.style.width = (segLen(seg) / total0 * 100) + '%';
+      labelEl.textContent = fmt(segLen(seg));
+      // Playhead rides the dragged edge; the preview shows that exact frame.
+      const edgeTl = side === 'l'
+        ? offset0 + (seg.start - start0)
+        : offset0 + segLen(seg);
+      playheadEl.style.left = (edgeTl / total0 * 100) + '%';
+      timeEl.textContent = fmt(edgeTl) + ' / ' + fmt(tlDuration());
       video.currentTime = side === 'l' ? seg.start : seg.end;
-      renderTrack();
-      renderRuler();
-      renderChrome();
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      // Land the playhead on the trimmed edge, then rescale to fill.
+      playhead = offsetOf(segs().indexOf(seg)) + (side === 'l' ? 0 : segLen(seg));
       if (snapshot() !== preDrag) {
         pushUndo(preDrag);
         afterEdit();
       } else {
-        renderTrack();
+        renderTrack();  // rebuilds the strip, clearing the mask overrides
         refreshTools();
       }
     };
