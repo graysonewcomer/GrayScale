@@ -18,6 +18,11 @@ per-game library. Runs on your machine — no account, no cloud.
 - **Export** — multi-select clips and copy them into a new folder you name.
   **Copy only — originals are never touched.** Exports land in
   `~/Videos/GrayScale Exports/<name>`.
+- **Editor** — scissors icon on a clip opens a non-destructive editor:
+  trim, split at the playhead, delete segments, undo/redo. Edits are saved
+  as JSON projects (never touching the original) and can be exported as a
+  new MP4, rendered by ffmpeg with a live progress bar. Edited exports land
+  in `~/Videos/GrayScale Exports/Edited`.
 
 ## Requirements
 
@@ -39,12 +44,14 @@ Then open http://127.0.0.1:5000
 ```
 app.py               # Flask server (dashboard, thumbnails, streaming, tags, export)
 db.py                # SQLite tag storage
+editor.py            # non-destructive editor: JSON projects + ffmpeg rendering
 templates/index.html # single-page front end
+static/              # stylesheet + JS (app, theme, arcade, editor)
 requirements.txt
 ```
 
-Runtime data (`tags.db`, `thumbnails/`) is created on first run and is
-git-ignored. The tool was built in phases (thumbnail proof-of-concept → scan →
+Runtime data (`tags.db`, `thumbnails/`, `projects/`) is created on first run
+and is git-ignored. The tool was built in phases (thumbnail proof-of-concept → scan →
 dashboard → tagging → filter/export); that history lives in the git log.
 
 See [BACKLOG.md](BACKLOG.md) for what is intentionally out of scope for v1.

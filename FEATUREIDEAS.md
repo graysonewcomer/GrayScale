@@ -5,8 +5,10 @@ any build. Small fixes and polish live in **Backlog** instead.
 
 ## From the original PRFAQ parking lot
 
-1. **In-app trim** — cut a clip down to the good moment before export.
-   (Basic playback now exists; trimming does not.)
+1. ~~**In-app trim**~~ — shipped July 2026, and then some: the editor does
+   trim, split, delete, undo/redo, with ffmpeg MP4 export. Natural
+   follow-ups now that the EDL schema has typed tracks: text overlays,
+   audio track control, transitions, zoom/pan effects, multi-track.
 2. **Auto-metadata via filename parsing** — pull date/time and any hints
    straight out of the NVIDIA filename to prefill fields.
 3. **OCR-based hero / map detection** — read the killcam or scoreboard

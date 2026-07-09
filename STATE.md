@@ -36,6 +36,18 @@ All four v1 phases are done and working:
   persisted best streak, full clip unlocked after the reveal. All
   client-side (`static/arcade.js`) on top of the existing `/video/`
   streaming — no new endpoints, no new dependencies. ✅
+- **Non-destructive clip editor** — scissors icon on each card opens a
+  full-screen editor: single video track, draggable playhead, trim handles,
+  split at playhead, delete segment, undo/redo, autosave. Edits are an edit
+  decision list stored as JSON in `projects/<clip_id>.json` (gitignored user
+  data, like `tags.db`) — the original file is never touched. Timeline shows
+  lazy per-second thumbnails (`/edit-thumb/…`, cached under
+  `thumbnails/edit/`). Export renders a new MP4 via ffmpeg in a background
+  thread (fast-seek `-ss/-t` inputs + concat filter, so multi-GB sources are
+  never fully decoded), with a polled progress bar; output lands in
+  `~/Videos/GrayScale Exports/Edited/`. Backend is `editor.py` (a Flask
+  blueprint), frontend `static/editor.js`. Renames migrate the project file
+  and thumb cache like tags do. ✅
 
 ## Next step
 

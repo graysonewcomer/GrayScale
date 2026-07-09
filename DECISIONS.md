@@ -2,6 +2,17 @@
 
 One-liners on things we ruled out (or committed to) and why. Newest at top.
 
+- **Editing is an EDL, not a video operation** — the editor stores segments
+  (source in/out windows) as JSON in `projects/`; nothing reads or writes
+  video until export, which renders a *new* MP4. Originals stay untouched,
+  consistent with the export rule.
+- **Project schema carries `version` + typed tracks** — segments live in
+  `tracks[]` with a `kind` field so audio / text / overlay tracks (and
+  per-segment effects or transitions) can be added later without breaking
+  saved projects. Only `kind: "video"` is accepted today.
+- **Export re-encodes (x264 CRF 18) instead of stream-copying** —
+  frame-accurate cuts beat keyframe-snapped `-c copy` cuts; each segment is
+  a fast-seeking `-ss/-t` input so multi-GB files are never fully decoded.
 - **Tag colors are random-per-tag and stored, not hash-derived** — a
   `tag_colors` SQLite table beats hashing the tag name to a hue: colors
   stay stable even if the palette generator changes later.
