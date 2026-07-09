@@ -35,6 +35,12 @@
   let activeIdx = 0;       // segment currently feeding the <video>
   let selectedId = null;   // selected segment id, or null
   let raf = 0;
+  const undoStack = [];    // JSON snapshots of the timeline
+  const redoStack = [];
+  let saveTimer = null;
+
+  const MIN_SEG = 0.1;     // matches the server's MIN_SEGMENT_SECONDS
+  const newSegId = () => 'seg-' + Math.random().toString(36).slice(2, 10);
 
   const segs = () => project.timeline.tracks[0].segments;
   const segLen = s => s.end - s.start;
@@ -96,6 +102,12 @@
       label.className = 'tl-seg-label';
       label.textContent = fmt(segLen(seg));
       el.appendChild(label);
+      ['l', 'r'].forEach(side => {
+        const h = document.createElement('div');
+        h.className = 'tl-handle tl-handle-' + side;
+        h.dataset.side = side;
+        el.appendChild(h);
+      });
       trackEl.appendChild(el);
     });
   }
@@ -175,7 +187,9 @@
   tlInner.addEventListener('pointerup', e => {
     if (!scrubbing) return;
     scrubbing = false;
-    const segEl = e.target.closest('.tl-seg');
+    // Pointer capture retargets the event to tlInner, so hit-test manually.
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const segEl = under && under.closest('.tl-seg');
     selectedId = segEl ? segEl.dataset.seg : null;
     renderTrack();
     refreshTools();
@@ -184,16 +198,162 @@
 
   function refreshTools() {
     deleteBtn.disabled = !selectedId || segs().length <= 1;
+    undoBtn.disabled = undoStack.length === 0;
+    redoBtn.disabled = redoStack.length === 0;
   }
+
+  // ---- history + autosave ----
+  // Undo/redo is a snapshot stack: the timeline JSON is tiny, so whole
+  // copies beat command objects for robustness.
+  const snapshot = () => JSON.stringify(project.timeline);
+
+  function pushUndo(snap) {
+    undoStack.push(snap);
+    if (undoStack.length > 100) undoStack.shift();
+    redoStack.length = 0;
+  }
+
+  function afterEdit() {
+    seekTl(playhead);  // clamps and re-locates the active segment
+    render();
+    refreshTools();
+    scheduleSave();
+  }
+
+  function applySnapshot(snap) {
+    project.timeline = JSON.parse(snap);
+    if (!segs().some(s => s.id === selectedId)) selectedId = null;
+    afterEdit();
+  }
+
+  function undo() {
+    if (!undoStack.length) return;
+    redoStack.push(snapshot());
+    applySnapshot(undoStack.pop());
+  }
+
+  function redo() {
+    if (!redoStack.length) return;
+    undoStack.push(snapshot());
+    applySnapshot(redoStack.pop());
+  }
+
+  function scheduleSave() {
+    saveStateEl.className = 'editor-savestate';
+    saveStateEl.textContent = 'Unsaved changes…';
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 800);
+  }
+
+  async function saveNow() {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    if (!project) return;
+    const id = clipId;
+    const body = JSON.stringify({ timeline: project.timeline });
+    try {
+      const res = await fetch('/api/project/' + id, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'save failed');
+      if (id !== clipId) return;  // editor moved on while we were in flight
+      saveStateEl.className = 'editor-savestate saved';
+      saveStateEl.textContent = 'Saved';
+    } catch (err) {
+      if (id !== clipId) return;
+      saveStateEl.className = 'editor-savestate error';
+      saveStateEl.textContent = 'Save failed: ' + err.message;
+    }
+  }
+
+  // ---- editing operations ----
+  function splitAtPlayhead() {
+    if (!project) return;
+    const { i, src } = locate(playhead);
+    const seg = segs()[i];
+    if (src - seg.start < MIN_SEG || seg.end - src < MIN_SEG) return;
+    pushUndo(snapshot());
+    const right = { id: newSegId(), start: src, end: seg.end };
+    seg.end = src;
+    segs().splice(i + 1, 0, right);
+    selectedId = right.id;  // ready to delete the tail in one keystroke
+    afterEdit();
+  }
+
+  function deleteSelected() {
+    const list = segs();
+    if (!selectedId || list.length <= 1) return;
+    const i = list.findIndex(s => s.id === selectedId);
+    if (i < 0) return;
+    pushUndo(snapshot());
+    list.splice(i, 1);
+    selectedId = null;
+    afterEdit();
+  }
+
+  // ---- trim: drag a segment's edge; source window shrinks or grows ----
+  trackEl.addEventListener('pointerdown', e => {
+    const handle = e.target.closest('.tl-handle');
+    if (!handle || !project) return;
+    e.stopPropagation();  // not a scrub
+    e.preventDefault();
+    const segId = handle.closest('.tl-seg').dataset.seg;
+    const seg = segs().find(s => s.id === segId);
+    const side = handle.dataset.side;
+    const preDrag = snapshot();
+    // Scale is frozen at drag start: trimming changes the total duration,
+    // and a live-updating scale makes the handle squirm under the cursor.
+    const pxPerSec = tlInner.getBoundingClientRect().width / tlDuration();
+    const x0 = e.clientX;
+    const start0 = seg.start;
+    const end0 = seg.end;
+    video.pause();
+    selectedId = segId;
+
+    const onMove = ev => {
+      const dt = (ev.clientX - x0) / pxPerSec;
+      if (side === 'l') {
+        seg.start = Math.min(Math.max(0, start0 + dt), seg.end - MIN_SEG);
+      } else {
+        seg.end = Math.max(Math.min(project.source.duration, end0 + dt), seg.start + MIN_SEG);
+      }
+      // Preview the exact trim frame while dragging.
+      const idx = segs().indexOf(seg);
+      playhead = offsetOf(idx) + (side === 'l' ? 0 : segLen(seg));
+      video.currentTime = side === 'l' ? seg.start : seg.end;
+      renderTrack();
+      renderRuler();
+      renderChrome();
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      if (snapshot() !== preDrag) {
+        pushUndo(preDrag);
+        afterEdit();
+      } else {
+        renderTrack();
+        refreshTools();
+      }
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
 
   // ---- open / close ----
   async function open(card) {
     clipId = card.dataset.clip;
     titleEl.textContent = card.querySelector('.name').textContent;
+    saveStateEl.className = 'editor-savestate';
     saveStateEl.textContent = '';
     selectedId = null;
     playhead = 0;
     activeIdx = 0;
+    undoStack.length = 0;
+    redoStack.length = 0;
 
     overlay.classList.add('open');
     const res = await fetch('/api/project/' + clipId);
@@ -211,6 +371,7 @@
   }
 
   function close() {
+    if (saveTimer) saveNow();  // flush a pending autosave before leaving
     overlay.classList.remove('open');
     cancelAnimationFrame(raf);
     video.pause();
@@ -225,6 +386,10 @@
   });
   closeBtn.addEventListener('click', close);
   playBtn.addEventListener('click', togglePlay);
+  splitBtn.addEventListener('click', splitAtPlayhead);
+  deleteBtn.addEventListener('click', deleteSelected);
+  undoBtn.addEventListener('click', undo);
+  redoBtn.addEventListener('click', redo);
   video.addEventListener('click', togglePlay);
   video.addEventListener('play', renderChrome);
   video.addEventListener('pause', renderChrome);
@@ -234,5 +399,9 @@
     if (e.target.matches('input, textarea, select')) return;
     if (e.key === 'Escape') close();
     else if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+    else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+    else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) { e.preventDefault(); redo(); }
+    else if (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey) splitAtPlayhead();
+    else if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
   });
 })();

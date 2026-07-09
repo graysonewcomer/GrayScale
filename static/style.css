@@ -904,6 +904,32 @@ body::before {
   overflow: hidden;
 }
 .tl-seg.sel { box-shadow: inset 0 0 0 2px var(--silver); }
+.tl-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  z-index: 3;
+  cursor: ew-resize;
+}
+.tl-handle-l { left: 0; }
+.tl-handle-r { right: 0; }
+.tl-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--border-strong);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.tl-handle-l::after { left: 0; }
+.tl-handle-r::after { right: 0; }
+.tl-seg:hover .tl-handle::after, .tl-seg.sel .tl-handle::after {
+  opacity: 1;
+  background: var(--silver);
+}
 .tl-seg-label {
   position: absolute;
   right: 5px;
