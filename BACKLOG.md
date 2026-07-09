@@ -4,9 +4,6 @@ Small fixes, polish, and refinements. Bigger unspecced features live in
 `FEATUREIDEAS.md`; things ruled out live in `DECISIONS.md`.
 
 ## Polish / small fixes
-- Extract the shared CSS (theme tokens + sidebar) into one stylesheet.
-  `index.html` and `status.html` now duplicate the token block — consolidate
-  before the design-polish pass.
 - Click a tag chip (on a card or in the player) to filter the grid by that
   tag, instead of retyping it in the filter box.
 

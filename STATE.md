@@ -19,9 +19,12 @@ All four v1 phases are done and working:
 - **Tagging UX** — chips with an `×` to remove, `+ tag` reveal input
   (no more double display). ✅
 - **Status page** — this page: renders project `.md` files in-app. ✅
+- **Monochrome redesign** — chess-inspired black & white theme (silver
+  accents, serif brand type, checkerboard motifs). CSS/JS split out of the
+  templates into `static/style.css`, `static/theme.js`, `static/app.js`;
+  both pages now share one stylesheet. ✅
 
 ## Next step
 
-- Separate CSS out of the templates into a shared stylesheet, then do a
-  design polish pass (the templates currently duplicate the theme tokens).
-- Remaining small UI fixes are parked in **Backlog**.
+- Remaining small UI fixes are parked in **Backlog** (next up:
+  click-a-chip-to-filter).
