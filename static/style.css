@@ -767,6 +767,204 @@ body::before {
 }
 .player-close:hover { background: #fff; color: #000; border-color: #fff; }
 
+/* ---- Editor ---- */
+.edit-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--muted);
+  line-height: 0;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s;
+}
+.card:hover .edit-btn, .edit-btn:focus-visible { opacity: 1; }
+.edit-btn:hover { color: var(--text); }
+.edit-btn svg { width: 13px; height: 13px; }
+
+.editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 26px;
+  backdrop-filter: blur(5px);
+}
+.editor-overlay.open { display: flex; }
+.editor-box {
+  display: flex;
+  flex-direction: column;
+  width: min(1200px, 100%);
+  max-height: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+}
+.editor-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.editor-title-wrap { min-width: 0; flex: 1; }
+.editor-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.editor-savestate { color: var(--muted); font-size: 11px; margin-top: 2px; min-height: 13px; }
+.editor-savestate.saved { color: var(--green); }
+.editor-savestate.error { color: var(--danger); }
+.editor-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.ed-tool {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  transition: border-color 0.12s;
+}
+.ed-tool:hover:not(:disabled) { border-color: var(--silver); }
+.ed-tool:disabled { opacity: 0.3; cursor: not-allowed; }
+.ed-labeled { font-size: 12.5px; padding: 0 12px; }
+
+.editor-stage { background: #000; }
+.editor-stage video {
+  display: block;
+  width: 100%;
+  max-height: 52vh;
+  object-fit: contain;
+  cursor: pointer;
+}
+.editor-transport {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px 0;
+}
+.ed-time {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.editor-timeline { padding: 6px 16px 16px; }
+.tl-inner { position: relative; cursor: crosshair; touch-action: none; }
+.tl-ruler { position: relative; height: 18px; overflow: hidden; }
+.tl-tick {
+  position: absolute;
+  top: 2px;
+  padding-left: 5px;
+  border-left: 1px solid var(--border-strong);
+  color: var(--muted);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+  height: 100%;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.tl-track {
+  position: relative;
+  height: 64px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  /* checkerboard shows through where segments were deleted */
+  background: repeating-conic-gradient(var(--sq-a) 0% 25%, var(--sq-b) 0% 50%);
+  background-size: 16px 16px;
+}
+.tl-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--panel-2);
+  border-left: 1px solid var(--border-strong);
+  border-right: 1px solid var(--border-strong);
+  overflow: hidden;
+}
+.tl-seg.sel { box-shadow: inset 0 0 0 2px var(--silver); }
+.tl-seg-label {
+  position: absolute;
+  right: 5px;
+  bottom: 3px;
+  z-index: 2;
+  color: #fff;
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 4px;
+  padding: 1px 5px;
+  pointer-events: none;
+}
+.tl-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--silver-bright);
+  pointer-events: none;
+  z-index: 5;
+}
+.tl-playhead::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 10px;
+  height: 10px;
+  background: var(--silver-bright);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.editor-exportbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+}
+.ed-progress {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+.ed-progress-fill { height: 100%; width: 0%; background: var(--silver-sheen); transition: width 0.3s; }
+.ed-export-status {
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ed-export-status.ok { color: var(--green); }
+.ed-export-status.error { color: var(--danger); }
+
 /* ---- Rendered markdown (status page) ---- */
 .md-content {
   max-width: 720px;
