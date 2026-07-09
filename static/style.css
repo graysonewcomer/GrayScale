@@ -28,6 +28,11 @@
   --danger: #ff6b6b;
   --focus: #8f7fd4;               /* the only purple in the house */
 
+  /* Editor: gold for trim brackets — the one warm metal in the set —
+     and a haloed crosshair (white on dark) that reads on any footage */
+  --trim: #d6b25e;
+  --tl-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M12 3v18M3 12h18' stroke='%23000' stroke-width='5'/%3E%3Cpath d='M12 3v18M3 12h18' stroke='%23fff' stroke-width='2'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair;
+
   --chip-bg: #1d1d22;
   --chip-text: #d4d4dc;
   --chip-border: #34343c;
@@ -59,6 +64,9 @@
   --green: #15883e;
   --danger: #d03535;
   --focus: #7561c9;
+
+  --trim: #9a7b23;
+  --tl-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M12 3v18M3 12h18' stroke='%23fff' stroke-width='5'/%3E%3Cpath d='M12 3v18M3 12h18' stroke='%23000' stroke-width='2'/%3E%3C/g%3E%3C/svg%3E") 12 12, crosshair;
 
   --chip-bg: #ecebe8;
   --chip-text: #3c3c44;
@@ -870,7 +878,7 @@ body::before {
 }
 
 .editor-timeline { padding: 6px 16px 16px; }
-.tl-inner { position: relative; cursor: crosshair; touch-action: none; }
+.tl-inner { position: relative; cursor: var(--tl-cursor); touch-action: none; }
 .tl-ruler { position: relative; height: 18px; overflow: hidden; }
 .tl-tick {
   position: absolute;
@@ -930,28 +938,39 @@ body::before {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 9px;
+  width: 11px;
   z-index: 3;
   cursor: ew-resize;
 }
 .tl-handle-l { left: 0; }
 .tl-handle-r { right: 0; }
+/* Gold trim brackets — [ and ] — always visible, brighter when engaged */
+.tl-handle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  border-top: 3px solid var(--trim);
+  border-bottom: 3px solid var(--trim);
+  opacity: 0.8;
+  pointer-events: none;
+  transition: opacity 0.12s;
+}
 .tl-handle::after {
   content: "";
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 3px;
-  background: var(--border-strong);
-  opacity: 0;
+  width: 5px;
+  background: var(--trim);
+  opacity: 0.8;
   transition: opacity 0.12s;
 }
-.tl-handle-l::after { left: 0; }
-.tl-handle-r::after { right: 0; }
-.tl-seg:hover .tl-handle::after, .tl-seg.sel .tl-handle::after {
-  opacity: 1;
-  background: var(--silver);
-}
+.tl-handle-l::before, .tl-handle-l::after { left: 0; }
+.tl-handle-r::before, .tl-handle-r::after { right: 0; }
+.tl-seg:hover .tl-handle::before, .tl-seg.sel .tl-handle::before,
+.tl-seg:hover .tl-handle::after, .tl-seg.sel .tl-handle::after { opacity: 1; }
 .tl-seg-label {
   position: absolute;
   right: 5px;
