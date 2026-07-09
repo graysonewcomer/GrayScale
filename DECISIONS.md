@@ -2,10 +2,17 @@
 
 One-liners on things we ruled out (or committed to) and why. Newest at top.
 
+- **Apply Edit overwrites the original clip (July 2026)** — requested
+  reversal of the editor's export-to-copy behavior: once you hit Apply, the
+  clip in the app *is* the edited cut — no side-copies accumulating. Staged
+  for safety: render to a temp file → ffprobe sanity check → atomic replace,
+  behind a confirm dialog that states exactly what is kept and discarded.
+  The recorded date (mtime) is preserved; project + thumbnail caches are
+  reset. Editing stays fully non-destructive *until* Apply. Export Set
+  (copy-only) is unchanged.
 - **Editing is an EDL, not a video operation** — the editor stores segments
   (source in/out windows) as JSON in `projects/`; nothing reads or writes
-  video until export, which renders a *new* MP4. Originals stay untouched,
-  consistent with the export rule.
+  video until you apply the edit.
 - **Project schema carries `version` + typed tracks** — segments live in
   `tracks[]` with a `kind` field so audio / text / overlay tracks (and
   per-segment effects or transitions) can be added later without breaking

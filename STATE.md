@@ -40,14 +40,21 @@ All four v1 phases are done and working:
   full-screen editor: single video track, draggable playhead, trim handles,
   split at playhead, delete segment, undo/redo, autosave. Edits are an edit
   decision list stored as JSON in `projects/<clip_id>.json` (gitignored user
-  data, like `tags.db`) — the original file is never touched. Timeline shows
-  lazy per-second thumbnails (`/edit-thumb/…`, cached under
-  `thumbnails/edit/`). Export renders a new MP4 via ffmpeg in a background
-  thread (fast-seek `-ss/-t` inputs + concat filter, so multi-GB sources are
-  never fully decoded), with a polled progress bar; output lands in
-  `~/Videos/GrayScale Exports/Edited/`. Backend is `editor.py` (a Flask
-  blueprint), frontend `static/editor.js`. Renames migrate the project file
-  and thumb cache like tags do. ✅
+  data, like `tags.db`) — nothing touches the file while editing. Timeline
+  shows lazy per-second thumbnails (`/edit-thumb/…`, cached under
+  `thumbnails/edit/`). **Apply Edit** renders the cut via ffmpeg in a
+  background thread (fast-seek `-ss/-t` inputs + concat filter, so multi-GB
+  sources are never fully decoded), with a polled progress bar, then
+  **replaces the clip in place** — confirmed first, staged through a temp
+  file + ffprobe sanity check + atomic swap, recorded date preserved, all
+  caches re-keyed. Backend is `editor.py` (a Flask blueprint), frontend
+  `static/editor.js`. Renames migrate the project file and thumb cache like
+  tags do. ✅
+- **Editor polish (July 2026)** — theme-aware haloed crosshair cursor
+  (black-on-light / white-on-dark), always-visible gold trim brackets,
+  iPhone-style trim drags (timeline holds its scale, segment truncates in
+  place, rescales on release), and a persisted volume slider + mute (M) in
+  the transport. ✅
 
 ## Next step
 

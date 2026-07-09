@@ -8,8 +8,9 @@ Small fixes, polish, and refinements. Bigger unspecced features live in
   tag, instead of retyping it in the filter box.
 
 ## Explicitly out of scope for v1
-- ~~Trimming / editing clips~~ — shipped July 2026 as the non-destructive
-  editor (EDL JSON + ffmpeg export; originals still never modified).
+- ~~Trimming / editing clips~~ — shipped July 2026 as the editor (EDL JSON;
+  originals untouched while editing, replaced only by an explicit,
+  confirmed Apply Edit — see DECISIONS.md).
 - Auto-detection of highlights
 - Any ML
 - Cloud / sync

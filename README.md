@@ -18,11 +18,12 @@ per-game library. Runs on your machine — no account, no cloud.
 - **Export** — multi-select clips and copy them into a new folder you name.
   **Copy only — originals are never touched.** Exports land in
   `~/Videos/GrayScale Exports/<name>`.
-- **Editor** — scissors icon on a clip opens a non-destructive editor:
-  trim, split at the playhead, delete segments, undo/redo. Edits are saved
-  as JSON projects (never touching the original) and can be exported as a
-  new MP4, rendered by ffmpeg with a live progress bar. Edited exports land
-  in `~/Videos/GrayScale Exports/Edited`.
+- **Editor** — scissors icon on a clip opens the editor: trim, split at the
+  playhead, delete segments, undo/redo, volume control. Edits are saved as
+  JSON projects and touch nothing until **Apply Edit**, which renders the
+  cut with ffmpeg (live progress bar) and replaces the clip in place —
+  confirmed first, staged through a temp file so a failed render can never
+  damage the clip, recorded date preserved.
 
 ## Requirements
 
