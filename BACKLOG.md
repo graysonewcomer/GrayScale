@@ -19,6 +19,9 @@ Small fixes, polish, and refinements. Bigger unspecced features live in
   preserved.
 
 ## Noticed during the build
+- The topbar (search / filter / Export Set) stays visible on the Arcade tab
+  where it does nothing. Consider hiding or swapping it when a non-library
+  panel is active.
 - Empty game folders (no clips) and non-game folders (`Java-runtime-delta`,
   `Unreal Crash Report Client`, etc.) — the dashboard currently hides folders
   with 0 clips. Consider an explicit "hide folder" control instead of implicit

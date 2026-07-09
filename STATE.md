@@ -30,8 +30,16 @@ All four v1 phases are done and working:
   filter. ✅
 - **Rename in-app** — pencil icon on card hover; renames the file on disk
   (stem only), migrating the tag row and cached thumbnail to the new id. ✅
+- **Arcade: Guess the Clip** — first game tab. Deals a random ten-second
+  window from a random clip; you name the game and pin the month + year.
+  Chess-flavored scoring (game +1, year +1, exact month +2), streak +
+  persisted best streak, full clip unlocked after the reveal. All
+  client-side (`static/arcade.js`) on top of the existing `/video/`
+  streaming — no new endpoints, no new dependencies. ✅
 
 ## Next step
 
 - Remaining small UI fixes are parked in **Backlog** (next up:
   click-a-chip-to-filter — even nicer now that chips are colored).
+- The Arcade section is built to take more games — see the new ideas in
+  **Feature Ideas**.

@@ -27,6 +27,12 @@
         </button>
         {% endfor %}
       </nav>
+      <div class="side-label">Arcade</div>
+      <nav class="nav nav-fixed">
+        <button class="nav-item" data-target="arcade-panel">
+          <span class="nav-name">&#9823; Guess the Clip</span>
+        </button>
+      </nav>
       {% else %}
       <div class="nav"></div>
       {% endif %}
@@ -82,6 +88,52 @@
           </div>
         </section>
         {% endfor %}
+
+        <section class="game-panel" id="arcade-panel">
+          <div class="arcade">
+            <header class="arcade-head">
+              <div>
+                <h2 class="arcade-title">Guess the Clip</h2>
+                <p class="arcade-sub">A random ten-second window from somewhere in your library. Name the game, pin the month.</p>
+              </div>
+              <div class="arcade-score">
+                <div class="score-box"><span class="score-num" id="arc-score">0</span><span class="score-label">points</span></div>
+                <div class="score-box"><span class="score-num" id="arc-streak">0</span><span class="score-label">streak</span></div>
+                <div class="score-box"><span class="score-num" id="arc-best">0</span><span class="score-label">best</span></div>
+              </div>
+            </header>
+
+            <div class="arcade-stage">
+              <video id="arc-video" playsinline class="no-touch"></video>
+              <div class="arcade-cover" id="arc-cover">
+                <div class="empty-glyph">&#9823;</div>
+                <button class="export arc-primary" id="arc-start">Deal a clip</button>
+              </div>
+              <button class="stage-pill" id="arc-replay" hidden>&#8635; Replay 10s</button>
+              <button class="stage-pill" id="arc-unmute" hidden>Unmute</button>
+              <div class="arcade-progress"><div class="arcade-progress-fill" id="arc-progress"></div></div>
+            </div>
+
+            <div class="arcade-guess" id="arc-guess" hidden>
+              <div class="guess-row">
+                <div class="guess-label">Which game?</div>
+                <div class="guess-games" id="arc-games"></div>
+              </div>
+              <div class="guess-row">
+                <div class="guess-label">When was it?</div>
+                <div class="guess-date">
+                  <select id="arc-month"></select>
+                  <select id="arc-year"></select>
+                </div>
+              </div>
+              <div class="guess-actions">
+                <button class="export arc-primary" id="arc-submit" disabled>Lock in guess</button>
+              </div>
+            </div>
+
+            <div class="arcade-reveal" id="arc-reveal" hidden></div>
+          </div>
+        </section>
         {% else %}
         <div class="empty">
           <div class="empty-glyph">&#9822;</div>
@@ -110,7 +162,9 @@
     </div>
   </div>
 
+  <script>window.ARCADE = {{ arcade | tojson }};</script>
   <script src="{{ url_for('static', filename='theme.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
+  <script src="{{ url_for('static', filename='arcade.js') }}"></script>
 </body>
 </html>

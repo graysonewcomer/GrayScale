@@ -14,6 +14,17 @@ any build. Small fixes and polish live in **Backlog** instead.
 4. **ML classifier** — trained on the user's own accumulated tags, to
    suggest tags for new clips as they come in.
 
+## Arcade (Guess the Clip shipped July 2026 — possible follow-ups)
+
+- **More arcade games** — the sidebar section and panel pattern generalize:
+  e.g. "older or newer?" (two clips, pick the earlier one), a tag-guessing
+  mode once tag coverage grows, or a daily seeded round.
+- **Guess-the-clip variants** — difficulty settings (5s window, one replay
+  only, mute-only "silent mode"), scoring for *closest* month instead of
+  exact, or excluding a game you've clearly memorized.
+- **Arcade stats** — rounds played, accuracy per game, average points;
+  could live in localStorage like best streak, or graduate to SQLite.
+
 ## Other ideas noticed during the build
 
 - **Tag list / manager per game** — a panel or cloud showing every tag

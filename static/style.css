@@ -246,7 +246,7 @@ body::before {
 .sel-count.has-sel { color: var(--text); }
 
 /* Primary button — always wears the opposing color, with a silver sheen sweep */
-.export {
+.export, .arc-primary {
   position: relative;
   overflow: hidden;
   background: var(--btn-bg);
@@ -261,7 +261,7 @@ body::before {
   cursor: pointer;
   font-family: inherit;
 }
-.export::before {
+.export::before, .arc-primary::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -269,8 +269,9 @@ body::before {
   transform: translateX(-130%);
   transition: transform 0.55s ease;
 }
-.export:hover:not(:disabled)::before { transform: translateX(130%); }
-.export:disabled { opacity: 0.35; cursor: not-allowed; }
+.export:hover:not(:disabled)::before,
+.arc-primary:hover:not(:disabled)::before { transform: translateX(130%); }
+.export:disabled, .arc-primary:disabled { opacity: 0.35; cursor: not-allowed; }
 .status {
   font-size: 12px;
   color: var(--green);
@@ -496,6 +497,179 @@ body::before {
 
 .game-panel { display: none; }
 .game-panel.active { display: block; }
+
+/* ---- Arcade: Guess the Clip ---- */
+.nav-fixed { flex: 0 0 auto; padding-bottom: 12px; }
+.arcade { max-width: 880px; margin: 0 auto; padding: 26px 24px 60px; }
+.arcade-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.arcade-title {
+  margin: 0;
+  font-family: "Didot", "Bodoni MT", "Playfair Display", Georgia, serif;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.arcade-sub { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
+.arcade-score { display: flex; gap: 8px; }
+.score-box {
+  min-width: 66px;
+  padding: 7px 13px;
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.score-num {
+  display: block;
+  font-size: 19px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.score-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+.arcade-stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  background: repeating-conic-gradient(var(--sq-a) 0% 25%, var(--sq-b) 0% 50%);
+  background-size: 24px 24px;
+}
+.arcade-stage video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.arcade-stage video.ready { opacity: 1; }
+.arcade-stage video.no-touch { pointer-events: none; }
+.arcade-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.arcade-cover .empty-glyph { margin-bottom: 0; }
+.stage-pill {
+  position: absolute;
+  z-index: 3;
+  right: 12px;
+  bottom: 14px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  backdrop-filter: blur(2px);
+  transition: background 0.12s, color 0.12s;
+}
+.stage-pill:hover { background: #fff; color: #000; border-color: #fff; }
+.arcade-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.35);
+}
+.arcade-progress-fill { height: 100%; width: 0%; background: var(--silver-sheen); }
+
+.arcade-guess { margin-top: 18px; display: flex; flex-direction: column; gap: 14px; }
+.guess-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+.guess-games { display: flex; flex-wrap: wrap; gap: 8px; }
+.guess-game {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 9px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, box-shadow 0.12s;
+}
+.guess-game:hover { color: var(--text); border-color: var(--border-strong); }
+.guess-game.picked {
+  color: var(--text);
+  border-color: var(--silver);
+  box-shadow: 0 0 0 1px var(--silver);
+}
+.guess-date { display: flex; gap: 8px; }
+.guess-date select {
+  padding: 8px 12px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.guess-date select:focus { outline: none; border-color: var(--silver); }
+.guess-actions { margin-top: 2px; }
+
+.arcade-reveal {
+  margin-top: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+.reveal-verdict {
+  font-family: "Didot", "Bodoni MT", "Playfair Display", Georgia, serif;
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.reveal-row {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  font-size: 13.5px;
+  margin: 6px 0;
+}
+.verdict-mark { font-weight: 700; flex-shrink: 0; }
+.verdict-mark.ok { color: var(--green); }
+.verdict-mark.no { color: var(--danger); }
+.verdict-mark.half { color: var(--silver-bright); }
+.reveal-clip {
+  color: var(--muted);
+  font-size: 11.5px;
+  margin: 12px 0 14px;
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
 
 /* ---- Empty state: the lone knight ---- */
 .empty {

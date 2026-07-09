@@ -137,7 +137,15 @@ def index():
     games = games_with_tags()
     all_tags = {t for game in games for clip in game["clips"] for t in clip["tags"]}
     colors = db.ensure_tag_colors(all_tags)
-    return render_template("index.html", games=games, root=str(ROOT), colors=colors)
+    # Arcade ("Guess the Clip") needs the answer key: one flat list of
+    # id / game / date / filename per clip, embedded as JSON in the page.
+    arcade = [
+        {"id": c["id"], "game": g["name"], "date": c["date"], "filename": c["filename"]}
+        for g in games for c in g["clips"]
+    ]
+    return render_template(
+        "index.html", games=games, root=str(ROOT), colors=colors, arcade=arcade
+    )
 
 
 def render_status(entry: dict):
